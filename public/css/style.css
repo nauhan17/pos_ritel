@@ -1,0 +1,161 @@
+:root {
+    --sidebar-width: 280px;
+}
+
+body {
+    overflow-x: hidden;
+}
+
+.img-profile {
+    width: 50px;
+}
+
+.img-logo {
+    width: 150px;
+}
+
+.sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    position: fixed; /* Pastikan ini ada */
+    left: 0; /* Pastikan sidebar menempel di kiri */
+    top: 0;
+    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
+}
+
+.sidebar-link {
+    color: #a0a3bd;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    margin: 4px 16px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar-link:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.sidebar-link.active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.main-content {
+    /* border: solid 1px; */
+    position: static;
+    height: 100vh;
+    margin-left: 280px;
+    padding-inline: 10px;
+}
+
+.navbar-content {
+    /* border: solid 1px; */
+    margin-left: 225px;
+}
+
+/* .navbar-partials {
+    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
+    border-radius: 5px;
+} */
+
+/* INSIGHT CARD */
+.stat-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
+}
+
+.stat-icon {
+    font-size: 40px;
+    color: #CBD5E1;
+    /* Example color - change as needed */
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.stat-desc {
+    color: #CBD5E1;
+}
+
+.custom-select-style {
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.custom-select-style:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.col-custom {
+    width: 20%;
+}
+
+.sortable:hover {
+            background-color: #f8f9fa;
+            cursor: pointer;
+}
+
+.sort-icon {
+    margin-left: 5px;
+    color: #6c757d;
+}
+
+.editable-cell:hover {
+    background-color: #e9f7fe;
+}
+
+table {
+    border: solid 1px;
+    margin-top: 10px;
+}
+
+tr {
+    cursor: pointer;
+}
+
+tr:hover {
+    background-color: #16181f;
+}
+
+.row-checkbox {
+    cursor: pointer;
+    pointer-events: auto; /* Memastikan checkbox tetap bisa diklik */
+}
+
+.btn-custom {
+    color: white !important;
+    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
+    width: 100px;
+}
+
+.hover-primary:hover {
+    background: #3B82F6 !important;
+    color: white !important;
+}
+
+.hover-secondary:hover {
+    background: #64748B !important;
+    color: white !important;
+}
+
+.hover-danger:hover {
+    background: #EF4444 !important;
+    color: white !important;
+}
+
+th {
+    color: #16181f;
+    font-size: 12px;
+    text-transform: uppercase;
+}
