@@ -16,8 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const diskonModal = new bootstrap.Modal(document.getElementById('diskonModal'));
     const saveDiskonBtn = document.getElementById('saveDiskonBtn');
     const isTanpaWaktuCheckbox = document.getElementById('is_tanpa_waktu');
-    const waktuDiskonContainer = document.getElementById('waktuDiskonContainer');
-    const daftarDiskon = document.getElementById('daftarDiskon');
 
     // State Management
     let currentSort = { field: 'nama_produk', direction: 'asc' };
@@ -51,11 +49,9 @@ document.addEventListener('DOMContentLoaded', function() {
         addRowBtn.addEventListener('click', () => addModal.show());
         saveNewBtn.addEventListener('click', handleAddProduct);
         deleteBtn.addEventListener('click', deleteSelected);
-        tablebody.addEventListener('click', makeCellEditable);
+        tablebody.addEventListener('click', (e) => makeCellEditable(e));
 
         // Discount Feature
-        diskonBtn.addEventListener('click', handleDiskonButton);
-        isTanpaWaktuCheckbox.addEventListener('change', toggleWaktuDiskon);
         saveDiskonBtn.addEventListener('click', saveDiskon);
 
         document.getElementById('editToggleBtn').addEventListener('click', toggleEditMode);
@@ -245,7 +241,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cell Editing
     function makeCellEditable(e) {
-        if(!isEditMode) return;
+        if(!isEditMode){
+            console.log('EDIT MODE IS OFF');
+            return;
+        }
         if (e.target.classList.contains('row-checkbox') || e.target.tagName === 'INPUT') return;
 
         const cell = e.target.closest('.editable-cell');
