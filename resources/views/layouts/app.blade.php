@@ -23,11 +23,15 @@
     <!-- Letakkan modal di luar container utama -->
     @yield('modals')
 
+    <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; width: 300px;"></div>
+
     <!-- JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery-easing/jquery.easing.min.js') }}"></script>
     <script src="{{ asset('js/sb-admin-2.min.js') }}"></script>
-    <script src="{{ asset('js/produk.js') }}"></script>
+    <script src="{{ asset('js/modules/produk.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 </body>
 </html>

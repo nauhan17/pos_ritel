@@ -2,11 +2,14 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProdukController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\StokController;
+
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\PenjualanController;
 use App\Http\Controllers\AktivitasController;
 use App\Http\Controllers\PenggunaController;
-
+use App\Models\Produk;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -23,8 +26,20 @@ Route::prefix('api')->group(function() {
     Route::delete('/produk/delete-multiple', [ProdukController::class, 'destroyMultiple']);
     // API untuk diskon produk
     Route::post('/produk/diskon', [ProdukController::class, 'storeDiskon']);
-    Route::get('/produk/diskon/{produkId}', [ProdukController::class, 'getDiskonByProduk']);
+    Route::get('/produk/{id}/diskon', [ProdukController::class, 'getDiskon']);
+    Route::delete('/produk/diskon/{id}', [ProdukController::class, 'hapusDiskon']);
+
+    Route::get('/produk/{produkId}/satuan', [ProdukController::class, 'getSatuan']);
+    Route::post('/produk/satuan', [ProdukController::class, 'storeSatuan']);
+    Route::delete('/produk/satuan/{id}', [ProdukController::class, 'destroySatuan']);
+
+    Route::get('/produk/{produkId}/barcode', [ProdukController::class, 'getBarcode']);
+    Route::get('/produk/{produkId}/generate-barcode', [ProdukController::class, 'generateBarcode']);
+    Route::post('/produk/barcode', [ProdukController::class, 'storeBarcode']);
+    Route::delete('/produk/barcode/{barcodeId}', [ProdukController::class, 'destroyBarcode']);
+    Route::put('/produk/barcode/{barcodeId}/set-utama', [ProdukController::class, 'setAsUtama']);
 });
+
 
 Route::get('/kasir', [KasirController::class, 'index'])->name('kasir.index');
 Route::get('/penjualan', [PenjualanController::class, 'index'])->name('penjualan.index');

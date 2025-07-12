@@ -16,13 +16,10 @@ return new class extends Migration
             $table->string('nama_produk');
             $table->string('kategori')->nullable();
             $table->string('supplier')->nullable();
-            $table->string('barcode')->nullable();
-            $table->string('rak')->nullable();
             $table->integer('stok')->nullable();
+            $table->string('satuan')->nullable();
             $table->decimal('harga_beli', 12, 2)->nullable();
             $table->decimal('harga_jual', 12, 2)->nullable();
-            $table->decimal('diskon', 5, 2)->nullable();
-            $table->date('kadaluwarsa')->nullable();
             $table->timestamps();
         });
     }

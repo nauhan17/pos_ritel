@@ -6,12 +6,114 @@ body {
     overflow-x: hidden;
 }
 
-.img-profile {
+.modal-body {
+    display: flex;
+    height: 70vh;
+    overflow: hidden;
+    padding: 0 0 0 0;
+}
+
+#addModal .modal-body,
+#editProdukModal .modal-body,
+#diskonModal .modal-body,
+#satuanModal .modal-body,
+#barcodeModal .modal-body,
+#restokModal .modal-body {
+    max-height: 65vh;
+    overflow-y: auto;
+}
+
+.btn-editable {
+    width:35px;
+    height:35px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
+}
+
+.btn-editable i {
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    color: #ffffff;
+}
+
+/* Sticky sidebar di modal */
+#produkSidebarMenu {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 70vh; /* atau 100% jika modal full */
+    overflow-y: auto;
+    background: #fff;
+    z-index: 2;
+}
+
+#produkSidebarContent {
+    flex: 1 1;
+    min-width: 0;
+    overflow-y: auto;
+    height: 70vh;
+    padding: 0 0 80px 20px;
+    background: #fff;
+}
+
+.btn-sidebar-modal {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Jarak antara icon dan label, bisa disesuaikan */
+    padding: 8px 12px;
+    font-size: 15px;
+    border-radius: 6px;
+    width: 100%;
+    text-align: left;
+    background: #f0f4fa;
+    border: none;
+    transition: background 0.2s;
+}
+
+.btn-sidebar-modal .sidebar-icon {
     width: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    text-align: center;
+}
+
+.btn-sidebar-modal .sidebar-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.btn-sidebar-modal.active,
+.btn-sidebar-modal:focus {
+    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%) !important;
+    color: #ffffff !important;
+}
+
+.btn-toggle-collapse {
+    padding: 2px 6px;
+    border: none;
+    background: none;
+}
+.tab-pane-inner {
+    transition: all 0.2s;
+}
+
+.img-profile {
+    width: 30px;
 }
 
 .img-logo {
     width: 150px;
+}
+
+.title-custom {
+    margin-left: 300px;
 }
 
 .sidebar {
@@ -120,7 +222,14 @@ table {
     margin-top: 10px;
 }
 
+th {
+    color: #16181f;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
 tr {
+    font-size: 14px;
     cursor: pointer;
 }
 
@@ -154,8 +263,74 @@ tr:hover {
     color: white !important;
 }
 
-th {
-    color: #16181f;
-    font-size: 12px;
-    text-transform: uppercase;
+.alert-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 300px;
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out forwards;
+}
+
+.alert-success {
+    background-color: #4CAF50; /* Hijau */
+    color: white;
+}
+
+.alert-error {
+    background-color: #F44336; /* Merah */
+    color: white;
+}
+
+/* Animasi muncul dari kanan */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Animasi menghilang */
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+    }
+}
+
+.alert.hide {
+    animation: fadeOut 0.5s ease-out forwards;
+}
+
+/* Tombol tutup */
+.alert .close-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+    margin-left: 10px;
+}
+
+.editable-cell.edit-mode {
+    background: #e6f7ff;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.editable-cell.editing {
+    background: #fffbe6;
+    box-shadow: 0 0 0 2px #10B981;
 }

@@ -8,6 +8,22 @@
         </button>
     </form>
 
+    <div class="title-custom">
+        @php
+            $routeName = Request::route()->getName();
+            $activeGroup = explode('.', $routeName)[0];
+        @endphp
+        <div class="navbar-submenu">
+            @if ($activeGroup === 'produk')
+                <div class="btn-group">
+                    <a href="{{ route('produk.index') }}" class="btn btn-outline-secondary {{ $routeName == 'produk.index' ? 'active' : '' }}">Data Produk</a>
+                </div>
+            @elseif($activeGroup == 'penjualan')
+                <a href="{{ route('penjualan.index') }}" class="btn btn-sm btn-outline-secondary {{ $routeName == 'penjualan.index' ? 'active' : '' }}">Transaksi</a>
+            @endif
+        </div>
+    </div>
+
     <!-- Topbar Navbar -->
     <ul class="navbar-nav ms-auto pe-4">
         <li class="nav-item dropdown">

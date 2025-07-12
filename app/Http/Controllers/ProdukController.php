@@ -4,7 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Produk;
 use App\Models\Diskon;
+use App\Models\KonversiSatuan;
+use App\Models\Barcode;
+
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
+
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProdukController extends Controller
 {
@@ -19,10 +27,10 @@ class ProdukController extends Controller
         $sort = $request->get('sort', 'nama_produk');
         $order = $request->get('order', 'asc');
 
-        $validSorts = ['nama_produk', 'barcode', 'stok', 'harga_beli', 'harga_jual', 'diskon', 'kadaluwarsa'];
+        $validSorts = ['nama_produk', 'kategori', 'supplier', 'stok', 'satuan', 'harga_beli', 'harga_jual', 'timestamps'];
         $sort = in_array($sort, $validSorts) ? $sort : 'nama_produk';
 
-        $produk = Produk::orderBy($sort, $order)->get();
+        $produk = Produk::with('konversiSatuan')->orderBy($sort, $order)->get();
 
         return response()->json($produk);
     }
@@ -30,12 +38,12 @@ class ProdukController extends Controller
     public function store(Request $request){
         $request->validate([
             'nama_produk' => 'required|string|max:100',
-            'barcode' => 'nullable|string|max:100',
+            'kategori' => 'nullable|string',
+            'supplier' => 'nullable|string',
             'stok' => 'nullable|integer',
+            'satuan' => 'nullable|string',
             'harga_beli' => 'nullable|decimal:0,2',
             'harga_jual' => 'nullable|decimal:0,2',
-            'diskon' => 'nullable|decimal:0,2',
-            'kadaluwarsa' => 'nullable|date'
         ]);
 
         $produk = Produk::create($request->all());
@@ -46,17 +54,12 @@ class ProdukController extends Controller
     public function update(Request $request, $id){
         $validated = $request->validate([
             'nama_produk' => 'sometimes|string|max:100',
-            'barcode' => 'nullable|string|max:100',
+            'kategori' => 'nullable|string',
+            'supplier' => 'nullable|string',
             'stok' => 'nullable|integer',
             'harga_beli' => 'nullable|numeric',
-            'harga_jual' => 'nullable|numeric',
-            'diskon' => 'nullable|numeric|min:0|max:100',
-            'kadaluwarsa' => 'nullable|date'
+            'harga_jual' => 'nullable|numeric'
         ]);
-
-        if(isset($validated['diskon'])){
-            $validated['diskon'] = (float) $validated['diskon'];
-        }
 
         $produk = Produk::findOrFail($id);
         $produk->update($validated);
@@ -67,22 +70,16 @@ class ProdukController extends Controller
     public function destroyMultiple(Request $request)
     {
         if (empty($request->ids)) {
-            return response()->json(['error' => 'Tidak ada data yang dipilih'], 400);
+            return response()->json(['error' => 'TIDAK ADA DATA YANG DIPILIH'], 400);
         }
 
         try {
             Produk::whereIn('id', $request->ids)->delete();
-            return response()->json(['success' => 'Data berhasil dihapus']);
+            return response()->json(['success' => 'DATA BERHASIL DIHAPUS']);
 
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Gagal menghapus: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'GAGAL MENGHAPUS: ' . $e->getMessage()], 500);
         }
-    }
-
-    // Diskon
-    public function diskonIndex(){
-        $produk = Produk::all();
-        return view('produk.diskon', compact('produks'));
     }
 
     public function storeDiskon(Request $request)
@@ -105,12 +102,6 @@ class ProdukController extends Controller
             'tanggal_berakhir' => $request->is_tanpa_waktu ? null : $request->tanggal_berakhir
         ]);
 
-        // Update diskon di produk jika perlu
-        $produk = Produk::find($request->produk_id);
-        $produk->update([
-            'diskon' => $this->hitungDiskonProduk($produk->id)
-        ]);
-
         return response()->json([
             'success' => true,
             'message' => 'Diskon berhasil ditambahkan',
@@ -118,31 +109,152 @@ class ProdukController extends Controller
         ]);
     }
 
-    // Method untuk mendapatkan diskon produk
-    public function getDiskonByProduk($produkId)
-    {
-        $diskon = Diskon::where('produk_id', $produkId)
-                    ->orderBy('created_at', 'desc')
-                    ->get();
+    public function getDiskon($id){
+        $diskon = Diskon::where('produk_id', $id)
+            ->orderBy('jumlah_minimum')
+            ->get();
 
         return response()->json($diskon);
     }
 
-    // Method helper untuk menghitung diskon produk
-    private function hitungDiskonProduk($produkId)
-    {
-        $diskonAktif = Diskon::where('produk_id', $produkId)
-                        ->where(function($query) {
-                            $query->where('is_tanpa_waktu', true)
-                                    ->orWhere(function($q) {
-                                        $now = now();
-                                        $q->where('tanggal_mulai', '<=', $now)
-                                        ->where('tanggal_berakhir', '>=', $now);
-                                    });
-                        })
-                        ->orderBy('diskon', 'desc')
-                        ->first();
+    public function hapusDiskon($id){
+        try {
+            $diskon = Diskon::findOrFail($id);
+            $diskon->delete();
 
-        return $diskonAktif ? $diskonAktif->diskon : 0;
+            return response()->json(['success' => true]);
+        } catch (\Exception $e){
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function storeSatuan(Request $request){
+        $validated = $request->validate([
+            'produk_id' => 'required|exists:produks,id',
+            'satuan_dasar' => 'required|string|max:20',
+            'jumlah' => 'required|numeric|min:0.01',
+            'satuan_besar' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('konversi_satuans')
+                    ->where('produk_id', $request->produk_id)
+                    ->where('satuan_dasar', $request->satuan_dasar)
+            ],
+            'konversi' => 'required|numeric|min:0.01'
+        ]);
+
+        $konversi = KonversiSatuan::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Konversi satuan berhasil ditambahkan',
+            'data' => $konversi
+        ]);
+    }
+
+    public function getSatuan($produkId){
+        $konversi = KonversiSatuan::where('produk_id', $produkId)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+        return response()->json($konversi);
+    }
+
+    public function destroySatuan($id)
+    {
+        try {
+            $konversi = KonversiSatuan::findOrFail($id);
+            $konversi->delete();
+
+            return response()->json(['success' => true]);
+        } catch (\Exception $e){
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getBarcode($produkId)
+    {
+        $produk = Produk::findOrFail($produkId);
+        $barcodes = $produk->barcodes()->latest()->get();
+
+        return response()->json($barcodes);
+    }
+
+    public function storeBarcode(Request $request)
+    {
+        $validated = $request->validate([
+            'produk_id' => 'required|exists:produks,id',
+            'kode_barcode' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('barcodes')->where(function ($query) use ($request) {
+                    return $query->where('produk_id', $request->produk_id);
+                })
+            ],
+            'is_utama' => 'sometimes|boolean'
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            if ($validated['is_utama'] ?? false) {
+                Barcode::where('produk_id', $validated['produk_id'])
+                    ->where('is_utama', true)
+                    ->update(['is_utama' => false]);
+            }
+
+            Barcode::create($validated);
+        });
+
+        return response()->json(['message' => 'Barcode berhasil disimpan'], 201);
+    }
+
+    public function destroyBarcode($barcodeId)
+    {
+        $barcode = Barcode::findOrFail($barcodeId);
+
+        DB::transaction(function () use ($barcode) {
+            if ($barcode->is_utama) {
+                Barcode::where('produk_id', $barcode->produk_id)
+                    ->where('id', '!=', $barcode->id)
+                    ->first()
+                    ?->update(['is_utama' => true]);
+            }
+
+            $barcode->delete();
+        });
+
+        return response()->json(['message' => 'Barcode berhasil dihapus']);
+    }
+
+    public function setAsUtama($barcodeId)
+    {
+        $barcode = Barcode::findOrFail($barcodeId);
+
+        DB::transaction(function () use ($barcode) {
+            Barcode::where('produk_id', $barcode->produk_id)
+                ->where('is_utama', true)
+                ->update(['is_utama' => false]);
+
+            $barcode->update(['is_utama' => true]);
+        });
+
+        return response()->json(['message' => 'Barcode utama berhasil diubah']);
+    }
+
+    public function generateBarcode($produkId)
+    {
+        $produk = Produk::findOrFail($produkId);
+        $barcode = Barcode::generateUniqueBarcode();
+
+        return response()->json([
+            'kode_barcode' => $barcode
+        ]);
     }
 }

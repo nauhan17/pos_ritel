@@ -14,14 +14,25 @@ class Produk extends Model
         'nama_produk',
         'kategori',
         'supplier',
-        'barcode',
-        'rak',
         'stok',
+        'satuan',
         'harga_beli',
         'harga_jual',
-        'diskon',
-        'kadaluwarsa'
+        'timestamps'
     ];
 
+    public function konversiSatuan()
+    {
+        return $this->hasMany(\App\Models\KonversiSatuan::class, 'produk_id');
+    }
 
+    public function barcodes()
+    {
+        return $this->hasMany(Barcode::class);
+    }
+
+    public function utamaBarcode()
+    {
+        return $this->hasOne(Barcode::class)->where('is_utama', true);
+    }
 }

@@ -11,7 +11,7 @@
             </a>
             <a href="{{ route('produk.index') }}" class="sidebar-link {{ request()->routeIs('produk.index') ? 'active' : '' }} text-decoration-none p-3">
                 <i class="fas fa-box-open me-1"></i>
-                <span class="px-2">Data Produk</span>
+                <span class="px-2">Master Data</span>
             </a>
             <a href="{{  route('kasir.index') }}" class="sidebar-link {{ request()->routeIs('kasir.index') ? 'active' : '' }} text-decoration-none p-3">
                 <i class="fas fa-calculator me-1"></i>
@@ -19,16 +19,16 @@
             </a>
             <a href="{{  route('penjualan.index') }}" class="sidebar-link {{ request()->routeIs('penjualan.index') ? 'active' : '' }} text-decoration-none p-3">
                 <i class="fas fa-chart-line me-1"></i>
-                <span class="px-2">Tracking Penjualan</span>
+                <span class="px-2">Tracking</span>
             </a>
             <a href="{{  route('aktivitas.index') }}" class="sidebar-link {{ request()->routeIs('aktivitas.index') ? 'active' : '' }} text-decoration-none p-3">
                 <i class="fas fa-history me-1"></i>
                 <span class="px-2">Aktivitas</span>
             </a>
-            <a href="{{  route('pengguna.index') }}" class="sidebar-link {{ request()->routeIs('pengguna.index') ? 'active' : '' }} text-decoration-none p-3">
+            {{-- <a href="{{  route('pengguna.index') }}" class="sidebar-link {{ request()->routeIs('pengguna.index') ? 'active' : '' }} text-decoration-none p-3">
                 <i class="fas fa-users me-1"></i>
                 <span class="px-2">Data Pengguna</span>
-            </a>
+            </a> --}}
         </div>
     </nav>
 

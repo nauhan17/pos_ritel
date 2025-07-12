@@ -60,24 +60,18 @@
         </div>
         <div class="row">
             <div class="col col-custom mt-4">
-                <select class="form-select" id="supplierFilter" aria-label="Filter Supplier">
-                    <option selected disabled>Supplier Produk</option>
-                </select>
-            </div>
-            <div class="col col-custom mt-4">
                 <select class="form-select" id="kategoriFilter" aria-label="Kategori Filter">
                     <option selected disabled>Kategori Produk</option>
                 </select>
             </div>
             <div class="col col-custom mt-4">
-                <select class="form-select" id="rakFilter" aria-label="Rak Filter">
-                    <option selected disabled>Rak Produk</option>
+                <select class="form-select" id="supplierFilter" aria-label="Supplier Filter">
+                    <option selected disabled>Supplier</option>
                 </select>
             </div>
             <div class="col col-custom mt-4">
-                <select class="form-select" aria-label="Default select example">
-                    <option selected disabled>Satuan</option>
-                    <option value="1">PCS</option>
+                <select class="form-select" id="satuanFilter" aria-label="Satuan Filter">
+                    <option value="">Semua Satuan</option>
                 </select>
             </div>
             <div class="col col-custom mt-4 d-flex justify-content-end">
@@ -94,44 +88,55 @@
         </div>
         <div class="row">
             <div class="container mt-4">
-                <div class="btn-group">
-                    <button id="addRowBtn" class="btn btn-custom hover-primary">
-                        Baru
+                <div class="btn-group me-3">
+                    <button id="editToggleBtn" class="btn rounded-circle ms-2 btn-editable p-0"
+                        data-bs-toggle="tooltip" title="Edit Table Mode">
+                        <i class="fas fa-pen" style="font-size:14px;"></i>
                     </button>
-                    <button id="editToggleBtn" class="btn btn-custom hover-secondary">
-                        Edit
+                </div>
+                <div class="btn-group">
+                    <button id="editProdukBtn" class="btn btn-custom hover-secondary">
+                        Atur
+                    </button>
+                    {{-- <button id="satuanBtn" class="btn btn-custom hover-secondary">
+                        Satuan
+                    </button>
+                    <button id="barcodeBtn" class="btn btn-custom hover-secondary">
+                        Barcode
+                    </button>
+                    <button id="restokBtn" class="btn btn-custom hover-secondary">
+                        Restok
                     </button>
                     <button id="diskonBtn" class="btn btn-custom hover-secondary">
                         Diskon
                     </button>
-                    <button id="" class="btn btn-custom hover-secondary">
-                        Restok
-                    </button>
-                    <button id="" class="btn btn-custom hover-secondary">
-                        Retur
-                    </button>
                     <button id="deleteBtn" class="btn btn-custom hover-danger">
                         Hapus
-                    </button>
+                    </button> --}}
                 </div>
+                <!-- Tambahkan di atas tabel -->
+                <div id="editModeBanner" class="alert alert-info py-2 mb-2 mt-2 d-none">
+                    <i class="fas fa-edit"></i> Edit Mode Aktif — Klik sel untuk mengubah data.
+                    <button class="btn btn-sm btn-outline-danger float-end" id="exitEditModeBtn">Keluar Edit Mode</button>
+                </div>
+
                 <table class="table table-striped table-hover" id="sortableTable">
                     <thead>
                         <tr>
-                            {{-- <th width="40px">
+                            <th width="40px">
                                 <input type="checkbox" id="selectAll">
-                            </th> --}}
-                            <th>pilih</th>
+                            </th>
                             <th class="sortable" data-sort="nama_produk">Nama Produk<i class="fas fa-sort sort-icon"></i></th>
-                            <th class="sortable" data-sort="barcode">Barcode<i class="fas fa-sort sort-icon"></i></th>
+                            <th class="sortable" data-sort="kategori">Kategori<i class="fas fa-sort sort-icon"></i></th>
+                            <th class="sortable" data-sort="supplier">Supplier<i class="fas fa-sort sort-icon"></i></th>
                             <th class="sortable" data-sort="stok" data-bs-toggle="tooltip" title="Jumlah PCS">Stok<i class="fas fa-sort sort-icon"></i></th>
                             <th class="sortable" data-sort="harga_beli">Harga Beli<i class="fas fa-sort sort-icon"></i></th>
                             <th class="sortable" data-sort="harga_jual">Harga Jual<i class="fas fa-sort sort-icon"></i></th>
-                            <th class="sortable" data-sort="diskon">Diskon<i class="fas fa-sort sort-icon"></i></th>
-                            <th class="sortable" data-sort="kadaluwarsa">Kadaluwarsa<i class="fas fa-sort sort-icon"></i></th>
+                            <th class="sortable" data-sort="timestamps">Updated<i class="fas fa-sort sort-icon"></i></th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
-                        <!-- Data akan diisi oleh JavaScript -->
+                        {{--  --}}
                     </tbody>
                 </table>
             </div>
@@ -139,109 +144,63 @@
 
         </div>
     </div>
-
-    <!-- Modal untuk Tambah Data -->
-    <div class="modal fade" id="addModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade" id="editProdukModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Baru</h5>
+                    <h5 class="modal-title">Atur Produk</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <form id="addForm" class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Nama Produk</label>
-                                <input type="text" class="form-control" name="nama_produk" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Supplier</label>
-                                <input type="text" class="form-control" name="supplier">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Rak</label>
-                                <input type="text" class="form-control" name="rak">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Harga Beli</label>
-                                <input type="number" class="form-control" name="harga_beli">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Diskon</label>
-                                <input type="number" class="form-control" name="diskon">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Kategori</label>
-                                <input type="text" class="form-control" name="kategori">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Barcode</label>
-                                <input type="text" class="form-control" name="barcode">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Stok</label>
-                                <input type="number" class="form-control" name="stok">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Harga Jual</label>
-                                <input type="number" class="form-control" name="harga_jual">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Kadaluwarsa</label>
-                                <input type="date" class="form-control" name="kadaluwarsa">
-                            </div>
-                        </div>
-                    </form>
+                <div class="modal-body d-flex" style="height: 70vh; overflow: hidden;">
+                    <!-- Sidebar -->
+                    <div class="border-end pe-3" style="width:200px;">
+                        <ul class="nav flex-column nav-pills" id="produkSidebarMenu">
+                            <li class="nav-item mb-2">
+                                <button class="nav-link btn-sidebar-modal d-flex align-items-center gap-2 text-dark" id="sidebarAddProdukBtn" data-menu="add">
+                                    <span class="sidebar-icon"><i class="fas fa-plus"></i></span>
+                                    <span class="sidebar-label">Produk Baru</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-2">
+                                <button class="nav-link btn-sidebar-modal d-flex align-items-center gap-2 text-dark" id="sidebarEditProdukBtn" data-menu="edit">
+                                    <span class="sidebar-icon"><i class="fas fa-edit"></i></span>
+                                    <span class="sidebar-label">Edit Produk</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-2">
+                                <button class="nav-link btn-sidebar-modal d-flex align-items-center gap-2 text-dark" id="sidebarSatuanBtn" data-menu="satuan">
+                                    <span class="sidebar-icon"><i class="fas fa-balance-scale"></i></span>
+                                    <span class="sidebar-label">Satuan</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-2">
+                                <button class="nav-link btn-sidebar-modal d-flex align-items-center gap-2 text-dark" id="sidebarBarcodeBtn" data-menu="barcode">
+                                    <span class="sidebar-icon"><i class="fas fa-barcode"></i></span>
+                                    <span class="sidebar-label">Barcode</span>
+                                </button>
+                            </li>
+                            <li class="nav-item mb-2">
+                                <button class="nav-link btn-sidebar-modal d-flex align-items-center gap-2 text-dark" id="sidebarDiskonBtn" data-menu="diskon">
+                                    <span class="sidebar-icon"><i class="fas fa-percent"></i></span>
+                                    <span class="sidebar-label">Diskon</span>
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link btn-sidebar-modal d-flex align-items-center gap-2 text-danger" id="sidebarDeleteBtn" data-menu="delete">
+                                    <span class="sidebar-icon"><i class="fas fa-trash"></i></span>
+                                    <span class="sidebar-label">Hapus</span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <!-- Content -->
+                    <div class="flex-grow-1 ps-3" id="produkSidebarContent" style="flex:1; overflow-y:auto;">
+                        <!-- Konten dinamis dari JS -->
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" id="saveNewBtn">Simpan</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal untuk Tambah Diskon -->
-    <div class="modal fade" id="diskonModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Tambah Diskon Produk</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="diskonForm">
-                        <input type="hidden" id="produk_id_diskon" name="produk_id">
-                        <div class="mb-3">
-                            <label class="form-label">Jumlah Minimum</label>
-                            <input type="number" class="form-control" name="jumlah_minimum" required min="1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Diskon (%)</label>
-                            <input type="number" class="form-control" name="diskon" required min="0" max="100" step="0.01">
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="is_tanpa_waktu" name="is_tanpa_waktu">
-                            <label class="form-check-label" for="is_tanpa_waktu">Diskon Tanpa Batas Waktu</label>
-                        </div>
-                        <div id="waktuDiskonContainer">
-                            <div class="mb-3">
-                                <label class="form-label">Tanggal Mulai</label>
-                                <input type="date" class="form-control" name="tanggal_mulai" id="tanggal_mulai">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Tanggal Berakhir</label>
-                                <input type="date" class="form-control" name="tanggal_berakhir" id="tanggal_berakhir">
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" id="saveDiskonBtn">Simpan Diskon</button>
+                    <button type="button" class="btn btn-primary" id="saveEditProdukBtn">Simpan Semua Perubahan</button>
                 </div>
             </div>
         </div>
