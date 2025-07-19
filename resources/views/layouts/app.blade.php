@@ -31,7 +31,11 @@
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('vendor/jquery-easing/jquery.easing.min.js') }}"></script>
     <script src="{{ asset('js/sb-admin-2.min.js') }}"></script>
-    <script src="{{ asset('js/modules/produk.js') }}"></script>
+
+    @stack('scripts')
+
+    {{-- <script src="{{ asset('js/modules/produk.js') }}"></script>
+    <script src="{{ asset('js/modules/tracking.js') }}"></script> --}}
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 </body>
 </html>

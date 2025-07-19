@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProdukController;
+use App\Http\Controllers\TrackingController;
+
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\StokController;
 
 use App\Http\Controllers\KasirController;
-use App\Http\Controllers\PenjualanController;
+
 use App\Http\Controllers\AktivitasController;
 use App\Http\Controllers\PenggunaController;
 use App\Models\Produk;
@@ -40,8 +42,13 @@ Route::prefix('api')->group(function() {
     Route::put('/produk/barcode/{barcodeId}/set-utama', [ProdukController::class, 'setAsUtama']);
 });
 
+Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.index');
+
+Route::get('/api/tracking', [TrackingController::class, 'getTracking']);
+Route::post('/api/tracking', [TrackingController::class, 'store']);
+
 
 Route::get('/kasir', [KasirController::class, 'index'])->name('kasir.index');
-Route::get('/penjualan', [PenjualanController::class, 'index'])->name('penjualan.index');
+Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.index');
 Route::get('/aktivitas', [AktivitasController::class, 'index'])->name('aktivitas.index');
 Route::get('/pengguna', [PenggunaController::class, 'index'])->name('pengguna.index');

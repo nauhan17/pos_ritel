@@ -48,7 +48,10 @@ class ProdukController extends Controller
 
         $produk = Produk::create($request->all());
 
-        return response()->json($produk, 201);
+        return response()->json([
+            'success' => true,
+            'data' => $produk
+        ]);
     }
 
     public function update(Request $request, $id){

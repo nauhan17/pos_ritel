@@ -17,7 +17,7 @@
                 <i class="fas fa-calculator me-1"></i>
                 <span class="px-2">Kasir</span>
             </a>
-            <a href="{{  route('penjualan.index') }}" class="sidebar-link {{ request()->routeIs('penjualan.index') ? 'active' : '' }} text-decoration-none p-3">
+            <a href="{{  route('tracking.index') }}" class="sidebar-link {{ request()->routeIs('tracking.index') ? 'active' : '' }} text-decoration-none p-3">
                 <i class="fas fa-chart-line me-1"></i>
                 <span class="px-2">Tracking</span>
             </a>

@@ -13,14 +13,12 @@ body {
     padding: 0 0 0 0;
 }
 
-#addModal .modal-body,
-#editProdukModal .modal-body,
-#diskonModal .modal-body,
-#satuanModal .modal-body,
-#barcodeModal .modal-body,
-#restokModal .modal-body {
-    max-height: 65vh;
+#baruProdukModal .modal-body {
+    height: 70vh !important;
+    max-height: 70vh;
     overflow-y: auto;
+    padding: 24px;
+    display: block !important;
 }
 
 .btn-editable {
@@ -59,42 +57,6 @@ body {
     background: #fff;
 }
 
-.btn-sidebar-modal {
-    display: flex;
-    align-items: center;
-    gap: 10px; /* Jarak antara icon dan label, bisa disesuaikan */
-    padding: 8px 12px;
-    font-size: 15px;
-    border-radius: 6px;
-    width: 100%;
-    text-align: left;
-    background: #f0f4fa;
-    border: none;
-    transition: background 0.2s;
-}
-
-.btn-sidebar-modal .sidebar-icon {
-    width: 50px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    text-align: center;
-}
-
-.btn-sidebar-modal .sidebar-label {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.btn-sidebar-modal.active,
-.btn-sidebar-modal:focus {
-    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%) !important;
-    color: #ffffff !important;
-}
-
 .btn-toggle-collapse {
     padding: 2px 6px;
     border: none;
@@ -110,10 +72,6 @@ body {
 
 .img-logo {
     width: 150px;
-}
-
-.title-custom {
-    margin-left: 300px;
 }
 
 .sidebar {
@@ -164,8 +122,7 @@ body {
 } */
 
 /* INSIGHT CARD */
-.stat-card {
-    border-radius: 10px;
+.stat {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     padding: 20px;
     background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
@@ -209,6 +166,11 @@ body {
 }
 
 .sort-icon {
+    margin-left: 5px;
+    color: #6c757d;
+}
+
+.sort-icon2 {
     margin-left: 5px;
     color: #6c757d;
 }

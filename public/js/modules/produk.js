@@ -12,7 +12,9 @@ document.addEventListener('DOMContentLoaded', function () {
         },
 
         modals: {
-            edit: new bootstrap.Modal('#editProdukModal')
+            baru: new bootstrap.Modal('#baruProdukModal'),
+            atur: new bootstrap.Modal('#aturProdukModal'),
+            hapus: new bootstrap.Modal('#hapusProdukModal')
         },
 
         buttons: {
@@ -74,36 +76,46 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // --- PRODUK CRUD EVENTS ---
-        DOM.buttons.product.editToggle.addEventListener('click', enterEditMode);
+        document.getElementById('produkSidebarMenu').addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-sidebar-modal');
+            if (!btn) return;
+            const menu = btn.dataset.menu;
+            renderAturProdukSidebar(menu);
+        });
 
+        document.getElementById('searchProdukInput').addEventListener('input', function() {
+            searchProduk(this.value);
+        });
+
+        document.getElementById('aturProdukBtn').addEventListener('click', function() {
+            renderAturProdukSidebar('edit');
+            DOM.modals.atur.show();
+        });
+
+        document.getElementById('baruProdukBtn').addEventListener('click', function() {
+            DOM.modals.baru.show();
+        });
+
+        // --- PRODUK CRUD EVENTS ---
+        // DOM.buttons.product.editToggle.addEventListener('click', enterEditMode);
+
+        document.getElementById('editTableBtn').addEventListener('click', enterEditMode);
         document.getElementById('exitEditModeBtn').addEventListener('click', exitEditMode);
         document.getElementById('saveEditProdukBtn').addEventListener('click', saveEditProduk);
 
         document.addEventListener('click', async function(e) {
-            if (e.target.classList.contains('btn-save-edit-tab')) {
-                const produkId = e.target.dataset.produkId;
-                const form = e.target.closest('.edit-produk-form');
-                await saveEditProdukSingle(form, produkId);
-            }
-
             if (e.target.classList.contains('btn-save-add-tab')) {
                 const form = e.target.closest('.add-produk-form');
                 await saveAddProduk(form);
             }
         });
 
-        // Event listener sidebar
-        document.addEventListener('click', function(e) {
-            const btn = e.target.closest('.btn-sidebar-modal');
-            if (!btn) return;
-            renderAturProdukSidebar(btn.dataset.menu);
+        document.getElementById('btnSimpanProdukBaru').addEventListener('click', async function() {
+            const form = document.getElementById('formTambahProduk');
+            await saveAddProduk(form);
         });
 
-        // Ganti event tombol utama
-        DOM.buttons.product.edit.addEventListener('click', function() {
-            showAturProdukModal('auto');
-        });
+        document.getElementById('hapusProdukBtn').addEventListener('click', deleteSelected);
 
         // --- DISKON EVENTS ---
         document.addEventListener('click', function(e) {
@@ -273,16 +285,19 @@ document.addEventListener('DOMContentLoaded', function () {
             // Hitung stok sesuai filter satuan
             const stokTampil = getStokBySatuan(item, satuanFilterValue);
 
+            const stokBadge = stokTampil <= 10
+            ? `<span class="badge bg-danger">${stokTampil}</span>`
+            : `<span class="badge bg-secondary">${stokTampil}</span>`;
             return `
                 <tr data-id="${item.id}">
-                    <td>
+                    <td class="text-center">
                         <input type="checkbox" class="row-checkbox" data-id="${item.id}"
                             ${isSelected ? 'checked' : ''}>
                     </td>
                     <td class="editable-cell" data-field="nama_produk">${item.nama_produk || ''}</td>
                     <td class="editable-cell" data-field="kategori">${item.kategori || ''}</td>
                     <td class="editable-cell" data-field="supplier">${item.supplier || ''}</td>
-                    <td class="editable-cell" data-field="stok">${stokTampil}</td>
+                    <td class="editable-cell" data-field="stok">${stokBadge}</td>
                     <td class="editable-cell" data-field="harga_beli">${formatCurrency(item.harga_beli)}</td>
                     <td class="editable-cell" data-field="harga_jual">${formatCurrency(item.harga_jual)}</td>
                     <td>${formatRelativeDate(item.updated_at || item.timestamps)}</td>
@@ -375,42 +390,52 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // SIDEBAR RENDER
-    function renderAturProdukSidebar(menu = 'add') {
+    function renderAturProdukSidebar(menu = 'edit') {
         document.querySelectorAll('#produkSidebarMenu .nav-link').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.menu === menu);
         });
 
         const content = document.getElementById('produkSidebarContent');
+        const saveBtn = document.getElementById('saveEditProdukBtn');
+
         switch (menu) {
-            case 'add':
-                content.innerHTML = renderAddProdukForm();
-                document.getElementById('saveEditProdukBtn').style.display = '';
-                break;
-            case 'edit':
-                renderEditProdukTabs(content);
-                document.getElementById('saveEditProdukBtn').style.display = '';
+            case 'edit': // Atur
+                renderEditSidebar(content);
+                saveBtn.style.display = '';
                 break;
             case 'satuan':
                 renderSatuanSidebar(content);
-                document.getElementById('saveEditProdukBtn').style.display = '';
+                saveBtn.style.display = '';
                 break;
             case 'barcode':
                 renderBarcodeSidebar(content);
-                document.getElementById('saveEditProdukBtn').style.display = '';
-                break;
-            case 'restok':
-                renderRestokSidebar(content);
-                document.getElementById('saveEditProdukBtn').style.display = '';
+                saveBtn.style.display = '';
                 break;
             case 'diskon':
                 renderDiskonSidebar(content);
-                document.getElementById('saveEditProdukBtn').style.display = '';
+                saveBtn.style.display = '';
                 break;
-            case 'delete':
-                renderDeleteSidebar(content);
-                document.getElementById('saveEditProdukBtn').style.display = '';
+            default:
                 break;
         }
+    }
+
+    function renderEditSidebar(content) {
+        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+        if (checkboxes.length === 0) {
+            content.innerHTML = `<div class="alert alert-info">Pilih produk untuk mengatur satuan.</div>`;
+            return;
+        }
+        state.selectedProduk = Array.from(checkboxes).map(checkbox => {
+            return state.allProducts.find(p => p.id == checkbox.dataset.id);
+        });
+
+        content.innerHTML = `
+            <div class="mb-2">Produk terpilih: <span id="jumlahProdukTerpilih"></span></div>
+            <ul class="nav nav-tabs" id="produkTabsContainer"></ul>
+            <div class="tab-content" id="produkTabContent"></div>
+        `;
+        renderEditModalTabs();
     }
 
     function renderSatuanSidebar(content) {
@@ -468,27 +493,88 @@ document.addEventListener('DOMContentLoaded', function () {
         renderDiskonModalTabs();
     }
 
-    function renderDeleteSidebar(content) {
-        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-        if (checkboxes.length === 0) {
-            content.innerHTML = `<div class="alert alert-info">Pilih produk yang akan dihapus.</div>`;
+    // PRODUK MANAGEMENT
+    function renderEditModalTabs() {
+        const tabsContainer = document.getElementById('produkTabsContainer');
+        const tabContentContainer = document.getElementById('produkTabContent');
+
+        // Update jumlah produk terpilih
+        document.getElementById('jumlahProdukTerpilih').textContent = state.selectedProduk.length;
+
+        tabsContainer.innerHTML = '';
+        tabContentContainer.innerHTML = '';
+
+        if (!state.selectedProduk || state.selectedProduk.length === 0) {
+            tabContentContainer.innerHTML = `<div class="alert alert-info">Pilih produk untuk diedit.</div>`;
+            document.getElementById('saveEditProdukBtn').style.display = 'none';
             return;
         }
-        const produkList = Array.from(checkboxes).map(checkbox => {
-            const produk = state.allProducts.find(p => p.id == checkbox.dataset.id);
-            return `<li>${produk.nama_produk}</li>`;
-        }).join('');
-        content.innerHTML = `
-            <div class="alert alert-danger">
-                <strong>PERINGATAN!</strong> Produk berikut akan dihapus permanen:
-                <ul>${produkList}</ul>
-                <button class="btn btn-danger mt-2" id="btnDeleteSelectedSidebar">Hapus Produk</button>
-            </div>
-        `;
-        document.getElementById('btnDeleteSelectedSidebar').onclick = deleteSelected;
+
+        state.selectedProduk.forEach((produk, index) => {
+            const isActive = index === 0;
+            const tabId = `edit-tab-${produk.id}`;
+            const contentId = `edit-content-${produk.id}`;
+
+            // Tab Item
+            const tabItem = document.createElement('li');
+            tabItem.className = 'nav-item';
+            tabItem.innerHTML = `
+                <button class="nav-link ${isActive ? 'active' : ''}"
+                        id="${tabId}"
+                        data-bs-toggle="tab"
+                        data-bs-target="#${contentId}"
+                        type="button">
+                    ${produk.nama_produk}
+                </button>
+            `;
+            tabsContainer.appendChild(tabItem);
+
+            // Tab Content
+            const tabContent = document.createElement('div');
+            tabContent.className = `tab-pane fade ${isActive ? 'show active' : ''}`;
+            tabContent.id = contentId;
+            tabContent.innerHTML = `
+                <form class="edit-produk-form" data-produk-id="${produk.id}">
+                    <input type="hidden" name="produk_id" value="${produk.id}">
+                    <div class="mb-3">
+                        <label class="form-label">Nama Produk</label>
+                        <input type="text" class="form-control" name="nama_produk" value="${produk.nama_produk || ''}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kategori</label>
+                        <input type="text" class="form-control" name="kategori" value="${produk.kategori || ''}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Supplier</label>
+                        <input type="text" class="form-control" name="supplier" value="${produk.supplier || ''}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stok</label>
+                        <input type="number" class="form-control" name="stok" value="${produk.stok || 0}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Satuan</label>
+                        <input type="text" class="form-control" name="satuan" value="${produk.satuan || ''}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Harga Beli</label>
+                        <input type="text" class="form-control" name="harga_beli" value="${parseInt(produk.harga_beli) || ''}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Harga Jual</label>
+                        <input type="text" class="form-control" name="harga_jual" value="${parseInt(produk.harga_jual) || ''}">
+                    </div>
+                    <button type="button" class="btn btn-primary btn-save-edit-tab" data-produk-id="${produk.id}">
+                        Simpan ${produk.nama_produk}
+                    </button>
+                </form>
+            `;
+            tabContentContainer.appendChild(tabContent);
+        });
+
+        document.getElementById('saveEditProdukBtn').style.display = '';
     }
 
-    // PRODUK MANAGEMENT
     async function saveAddProduk(form) {
         const formData = new FormData(form);
         const namaProduk = formData.get('nama_produk');
@@ -509,7 +595,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error(data.message || 'GAGAL MENAMBAHKAN PRODUK');
             }
 
-            DOM.modals.edit.hide();
+            if (response.ok) {
+                console.log('Response produk:', data);
+                if (!data.data || !data.data.id) {
+                    showAlert('Gagal mendapatkan data produk baru dari server', 'danger');
+                    return;
+                }
+                await saveTracking({
+                    produk_id: data.data.id,
+                    nama_produk: data.data.nama_produk,
+                    aksi: 'tambah',
+                    keterangan: `Produk Baru dari Supplier ${data.data.supplier || 'Tidak Ada Supplier'}`
+                });
+            }
+
+            DOM.modals.baru.hide();
             form.reset();
             showAlert(`PRODUK ${namaProduk} BERHASIL DITAMBAHKAN`, 'success');
             loadData(state.currentSort.field, state.currentSort.direction);
@@ -554,6 +654,36 @@ document.addEventListener('DOMContentLoaded', function () {
                     produk: data.nama_produk,
                     message: result.message || (response.ok ? 'Berhasil disimpan' : 'Gagal menyimpan')
                 });
+                if (response.ok) {
+                    const produkLama = state.allProducts.find(p => p.id == produkId);
+                    let perubahan = [];
+
+                    ['nama_produk', 'kategori', 'supplier', 'stok', 'satuan', 'harga_beli', 'harga_jual'].forEach(field => {
+                        const before = produkLama[field];
+                        const after = data[field];
+                        if ((field === 'stok' || field === 'harga_beli' || field === 'harga_jual')) {
+                            const beforeNum = parseInt(before) || 0;
+                            const afterNum = parseInt(after) || 0;
+                            if (beforeNum !== afterNum) {
+                                perubahan.push(`${field.replace('_', ' ')}: ${beforeNum} → ${afterNum}`);
+                            }
+                        } else {
+                            if ((before || '') !== (after || '')) {
+                                perubahan.push(`${field.replace('_', ' ')}: ${before || '-'} → ${after || '-'}`);
+                            }
+                        }
+                    });
+
+                    if (perubahan.length > 0) {
+                        const keterangan = `Edit data - ${perubahan.join(', ')}`;
+                        await saveTracking({
+                            produk_id: produkId,
+                            nama_produk: data.nama_produk,
+                            aksi: 'edit',
+                            keterangan
+                        });
+                    }
+                }
             } catch (error) {
                 results.push({
                     success: false,
@@ -613,6 +743,19 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!isConfirmed) return;
 
         try {
+            for (const produk of state.selectedProduk) {
+                const stok = parseInt(produk.stok) || 0;
+                const keterangan = stok === 0
+                    ? 'Tida Ada Stok'
+                    : `Stok Tersisa: ${stok}`;
+                await saveTracking({
+                    produk_id: produk.id,
+                    nama_produk: produk.nama_produk,
+                    aksi: 'hapus',
+                    keterangan
+                });
+            }
+
             const response = await fetch('/api/produk/delete-multiple', {
                 method: 'DELETE',
                 headers: {
@@ -640,7 +783,6 @@ document.addEventListener('DOMContentLoaded', function () {
             loadData(state.currentSort.field, state.currentSort.direction);
             state.selectedProduk = [];
             DOM.table.selectAll.checked = false;
-
         } catch (error) {
             await Swal.fire({
                 icon: 'error',
@@ -651,130 +793,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function showAturProdukModal(menu = 'add') {
-        if (menu === 'auto') {
-            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-            menu = checkboxes.length === 0 ? 'add' : 'edit';
-        }
-        renderAturProdukSidebar(menu);
-        DOM.modals.edit.show();
-    }
-
-    function renderAddProdukForm() {
-        return `
-            <form class="add-produk-form">
-                <div class="mb-3">
-                    <label class="form-label">Nama Produk</label>
-                    <input type="text" class="form-control" name="nama_produk" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Kategori</label>
-                    <input type="text" class="form-control" name="kategori">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Supplier</label>
-                    <input type="text" class="form-control" name="supplier">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Stok</label>
-                    <input type="number" class="form-control" name="stok" value="0">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Satuan</label>
-                    <input type="text" class="form-control" name="satuan">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Harga Beli</label>
-                    <input type="text" class="form-control" name="harga_beli">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Harga Jual</label>
-                    <input type="text" class="form-control" name="harga_jual">
-                </div>
-                <button type="button" class="btn btn-primary btn-save-add-tab">
-                    Simpan Produk Baru
-                </button>
-            </form>
-        `;
-    }
-
-    function renderEditProdukTabs(container) {
-        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-        if (checkboxes.length === 0) {
-            container.innerHTML = `<div class="alert alert-info">Pilih produk untuk diedit.</div>`;
-            document.getElementById('saveEditProdukBtn').style.display = 'none';
+    function searchProduk(keyword) {
+        keyword = (keyword || '').toLowerCase().trim();
+        if (!keyword) {
+            renderTable(state.allProducts);
+            updateTotals(state.allProducts);
             return;
         }
-        state.selectedProduk = Array.from(checkboxes).map(checkbox => {
-            return state.allProducts.find(p => p.id == checkbox.dataset.id);
-        });
 
-        let tabsHtml = `<ul class="nav nav-tabs" id="produkEditTabs">`;
-        let contentHtml = `<div class="tab-content" id="produkEditTabContent">`;
+        const filtered = state.allProducts.filter(produk =>
+            (produk.nama_produk || '').toLowerCase().includes(keyword) ||
+            (produk.kategori || '').toLowerCase().includes(keyword) ||
+            (produk.supplier || '').toLowerCase().includes(keyword)
+        );
 
-        state.selectedProduk.forEach((produk, index) => {
-            const isActive = index === 0;
-            const tabId = `edit-tab-${produk.id}`;
-            const contentId = `edit-content-${produk.id}`;
-            const hargaBeli = produk.harga_beli ? parseInt(produk.harga_beli).toLocaleString('id-ID') : '0';
-            const hargaJual = produk.harga_jual ? parseInt(produk.harga_jual).toLocaleString('id-ID') : '0';
-
-            tabsHtml += `
-                <li class="nav-item">
-                    <button class="nav-link ${isActive ? 'active' : ''}"
-                            id="${tabId}"
-                            data-bs-toggle="tab"
-                            data-bs-target="#${contentId}"
-                            type="button">
-                        ${produk.nama_produk}
-                    </button>
-                </li>
-            `;
-            contentHtml += `
-                <div class="tab-pane fade ${isActive ? 'show active' : ''}" id="${contentId}">
-                    <form class="edit-produk-form" data-produk-id="${produk.id}">
-                        <input type="hidden" name="produk_id" value="${produk.id}">
-                        <div class="mb-3">
-                            <label class="form-label">Nama Produk</label>
-                            <input type="text" class="form-control" name="nama_produk" value="${produk.nama_produk || ''}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Kategori</label>
-                            <input type="text" class="form-control" name="kategori" value="${produk.kategori || ''}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Supplier</label>
-                            <input type="text" class="form-control" name="supplier" value="${produk.supplier || ''}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Stok</label>
-                            <input type="number" class="form-control" name="stok" value="${produk.stok || 0}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Satuan</label>
-                            <input type="text" class="form-control" name="satuan" value="${produk.satuan || ''}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Harga Beli</label>
-                            <input type="text" class="form-control" name="harga_beli" value="${hargaBeli}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Harga Jual</label>
-                            <input type="text" class="form-control" name="harga_jual" value="${hargaJual}">
-                        </div>
-                        <button type="button" class="btn btn-primary btn-save-edit-tab" data-produk-id="${produk.id}">
-                            Simpan ${produk.nama_produk}
-                        </button>
-                    </form>
-                </div>
-            `;
-        });
-
-        tabsHtml += `</ul>`;
-        contentHtml += `</div>`;
-
-        container.innerHTML = tabsHtml + contentHtml;
-        document.getElementById('saveEditProdukBtn').style.display = '';
+        renderTable(filtered);
+        updateTotals(filtered);
     }
 
     // SATUAN
@@ -982,6 +1016,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (!response.ok) {
                 throw new Error(result.message || 'Gagal menyimpan konversi satuan');
+            }
+
+            if (response.ok) {
+                const produk = state.allProducts.find(p => p.id == produkId);
+                await saveTracking({
+                    produk_id: produk.id,
+                    nama_produk: produk.nama_produk,
+                    aksi: 'satuan',
+                    keterangan: `${formData.get('jumlah')} ${formData.get('satuan_besar')} → ${formData.get('konversi')} ${formData.get('satuan_dasar')}`
+                });
             }
 
             await loadKonversiSatuan(produkId);
@@ -1330,6 +1374,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         await loadBarcodeProduk(produkId);
                         form.reset();
                         document.getElementById(`barcode-preview-${produkId}`).innerHTML = '';
+
+                        await saveTracking({
+                            produk_id: produk.id,
+                            nama_produk: produk.nama_produk,
+                            aksi: 'barcode',
+                            keterangan: `Barcode baru: ${kodeBarcode}${barcodeData.is_utama ? ' (utama)' : ''}`
+                        });
                     }
                 } catch (error) {
                     results.push({
@@ -1878,6 +1929,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error(result.message || 'Gagal menyimpan diskon');
             }
 
+            if (response.ok) {
+                const produk = state.allProducts.find(p => p.id == produkId);
+                await saveTracking({
+                    produk_id: produk.id,
+                    nama_produk: produk.nama_produk,
+                    aksi: 'diskon',
+                    keterangan: `Diskon ${formData.get('diskon')}% min. qty ${formData.get('jumlah_minimum')}` +
+                        (formData.get('is_tanpa_waktu') === 'on'
+                            ? ' (tanpa batas waktu)'
+                            : ` (${formData.get('tanggal_mulai') || '-'} s/d ${formData.get('tanggal_berakhir') || '-'})`)
+                });
+            }
+
             await loadDiskonProduk(produkId);
 
             await loadingSwal.close();
@@ -2022,8 +2086,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const input = cell.querySelector('input');
         input.focus();
 
-        const saveChanges = () => handleSaveChanges(input, field, rowId, cell, currentValue);
-
+        let isSaving = false;
+        const saveChanges = () => {
+            if (isSaving) return;
+            isSaving = true;
+            handleSaveChanges(input, field, rowId, cell, currentValue).finally(() => {
+                isSaving = false;
+            });
+        };
         input.addEventListener('blur', saveChanges);
         input.addEventListener('keypress', (e) => e.key === 'Enter' && saveChanges());
     }
@@ -2087,6 +2157,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
             showAlert(`PRODUK ${updatedNamaProduk} BERHASIL DIPERBARUI`, 'success', 3000);
 
+            const produkLama = state.allProducts.find(p => p.id == rowId);
+            let perubahan = [];
+            let before = produkLama[field];
+            let after = newValue;
+
+            if (field === 'stok' || field === 'harga_beli' || field === 'harga_jual') {
+                before = parseInt(before) || 0;
+                after = parseInt(after) || 0;
+            } else {
+                before = before || '';
+                after = after || '';
+            }
+
+            if (before !== after) {
+                const keterangan = `Edit data - ${field.replace('_', ' ')}: ${before} → ${after}`;
+                await saveTracking({
+                    produk_id: rowId,
+                    nama_produk: updatedNamaProduk,
+                    aksi: 'edit',
+                    keterangan
+                });
+            }
+
             loadData(state.currentSort.field, state.currentSort.direction);
         } catch (error) {
             console.error('Error:', error);
@@ -2098,6 +2191,7 @@ document.addEventListener('DOMContentLoaded', function () {
             cell.textContent = originalValue;
         }
     }
+
 
     // UTILITY
     function showAlert(message, type = 'success', duration = 3000) {
@@ -2256,6 +2350,18 @@ document.addEventListener('DOMContentLoaded', function () {
             const stok = parseInt(item.stok) || 0;
             return sum + (hargaJual * stok);
         }, 0);
+    }
+
+    // TRACKING
+    async function saveTracking(trackingData) {
+        await fetch('/api/tracking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': DOM.meta.csrfToken
+            },
+            body: JSON.stringify(trackingData)
+        });
     }
 
     init();
