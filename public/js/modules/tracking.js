@@ -11,6 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
         currentSort: { field: 'created_at', direction: 'desc' }
     };
 
+    const trackingPagination = {
+        page: 1,
+        pageSize: 10
+    };
+
     async function loadTrackingData(sortField = 'created_at', sortDirection = 'desc') {
         try {
             const res = await fetch(`/api/tracking?sort=${sortField}&order=${sortDirection}`);
@@ -83,6 +88,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderTable(data) {
+        // Pagination
+        const totalData = data.length;
+        const totalPages = Math.ceil(totalData / trackingPagination.pageSize);
+        const startIdx = (trackingPagination.page - 1) * trackingPagination.pageSize;
+        const endIdx = startIdx + trackingPagination.pageSize;
+        const pagedData = data.slice(startIdx, endIdx);
+
         if (!Array.isArray(data) || data.length === 0) {
             DOM.table.body.innerHTML = `
                 <tr>
@@ -91,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             return;
         }
-        DOM.table.body.innerHTML = data.map((item, idx) => `
+        DOM.table.body.innerHTML = pagedData.map((item, idx) => `
             <tr>
                 <td>${item.produk ? item.produk.nama_produk : (item.nama_produk || '-')}</td>
                 <td class="pe-3" style="width: 150px;">${renderAksiBadge(item.aksi)}</td>
@@ -99,6 +111,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${formatDateTime(item.created_at)}</td>
             </tr>
         `).join('');
+
+        renderTrackingPagination(totalPages, trackingPagination.page);
+    }
+
+    function renderTrackingPagination(totalPages, currentPage) {
+        const paginationEl = document.getElementById('trackingPagination');
+        if (!paginationEl) return;
+        let html = '';
+
+        // Previous button
+        html += `<li class="page-item${currentPage === 1 ? ' disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">&laquo;</a>
+        </li>`;
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            html += `<li class="page-item${i === currentPage ? ' active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>`;
+        }
+
+        // Next button
+        html += `<li class="page-item${currentPage === totalPages ? ' disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">&raquo;</a>
+        </li>`;
+
+        paginationEl.innerHTML = html;
     }
 
     function setupDateFilter() {
@@ -178,6 +217,22 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('filterStartDate')?.addEventListener('change', applyTrackingFilter);
     document.getElementById('filterEndDate')?.addEventListener('change', applyTrackingFilter);
     DOM.table.sortableHeaders.forEach(header => header.addEventListener('click', handleSort));
+
+
+    document.getElementById('trackingPagination').addEventListener('click', function(e) {
+        e.preventDefault();
+        const page = parseInt(e.target.getAttribute('data-page'));
+        if (!isNaN(page) && page > 0) {
+            trackingPagination.page = page;
+            renderTable(state.allTracking);
+        }
+    });
+
+    document.getElementById('trackingPageSize').addEventListener('change', function() {
+        trackingPagination.pageSize = parseInt(this.value);
+        trackingPagination.page = 1;
+        renderTable(state.allTracking);
+    });
 
     loadTrackingData();
 });

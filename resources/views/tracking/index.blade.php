@@ -18,7 +18,7 @@
                 </select>
             </div>
         </div>
-        <div class="row">
+        <div class="row mb-3">
             <div class="container mt-4">
                 <div class="table-responsive">
                     <table class="table table-striped table-bordered table-hover align-middle rounded" id="trackingTable">
@@ -42,6 +42,22 @@
                             {{-- Data tracking diisi JS --}}
                         </tbody>
                     </table>
+                    <!-- Pagination Controls -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+                        <div>
+                            <label class="me-2">Tampilkan</label>
+                            <select id="trackingPageSize" class="form-select d-inline-block" style="width: 80px;">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            <span class="ms-2">data per halaman</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0" id="trackingPagination"></ul>
+                        </nav>
+                    </div>
                 </div>
             </div>
         </div>

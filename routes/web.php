@@ -1,42 +1,58 @@
 <?php
 
+use App\Http\Middleware\CekHakAkses;
+
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\PembelianController;
-
+use App\Http\Controllers\LoginController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\StokController;
-
 use App\Http\Controllers\KasirController;
-
 use App\Http\Controllers\AktivitasController;
 use App\Http\Controllers\PenggunaController;
-use App\Models\Produk;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+// Login routes (tanpa middleware)
+Route::get('/login', [LoginController::class, 'index'])->name('login.index');
+Route::post('/api/login', [LoginController::class, 'proses']);
 
-Route::get('/produk', [ProdukController::class, 'index'])->name('produk.index');
-Route::prefix('api')->group(function() {
+// Pengguna (akses:pengguna)
+Route::resource('pengguna', PenggunaController::class)
+    ->middleware(CekHakAkses::class . ':pengguna');
+Route::prefix('api')->middleware(CekHakAkses::class . ':pengguna')->group(function() {
+    Route::get('/pengguna', [PenggunaController::class, 'endpoint']);
+    Route::post('/pengguna', [PenggunaController::class, 'store']);
+    Route::put('/pengguna/{id}', [PenggunaController::class, 'update']);
+    Route::delete('/pengguna/{id}', [PenggunaController::class, 'destroy']);
+});
+
+// Dashboard (akses:dashboard)
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->name('dashboard.index')
+    ->middleware(CekHakAkses::class . ':dashboard');
+
+// Produk (akses:produk)
+Route::get('/produk', [ProdukController::class, 'index'])
+    ->name('produk.index')
+    ->middleware(CekHakAkses::class . ':produk');
+Route::prefix('api')->middleware(CekHakAkses::class . ':produk')->group(function() {
     Route::get('/produk', [ProdukController::class, 'endpoint']);
     Route::post('/produk', [ProdukController::class, 'store']);
     Route::put('/produk/{id}', [ProdukController::class, 'update']);
     Route::delete('/produk/delete-multiple', [ProdukController::class, 'destroyMultiple']);
-    // API untuk diskon produk
     Route::post('/produk/diskon', [ProdukController::class, 'storeDiskon']);
     Route::get('/produk/{id}/diskon', [ProdukController::class, 'getDiskon']);
     Route::delete('/produk/diskon/{id}', [ProdukController::class, 'hapusDiskon']);
-
     Route::get('/produk/{produkId}/satuan', [ProdukController::class, 'getSatuan']);
     Route::post('/produk/satuan', [ProdukController::class, 'storeSatuan']);
     Route::delete('/produk/satuan/{id}', [ProdukController::class, 'destroySatuan']);
-
     Route::get('/produk/{produkId}/barcode', [ProdukController::class, 'getBarcode']);
     Route::get('/produk/{produkId}/generate-barcode', [ProdukController::class, 'generateBarcode']);
     Route::post('/produk/barcode', [ProdukController::class, 'storeBarcode']);
@@ -44,18 +60,32 @@ Route::prefix('api')->group(function() {
     Route::put('/produk/barcode/{barcodeId}/set-utama', [ProdukController::class, 'setAsUtama']);
 });
 
-Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.index');
+// Tracking (akses:tracking)
+Route::get('/tracking', [TrackingController::class, 'index'])
+    ->name('tracking.index')
+    ->middleware(CekHakAkses::class . ':tracking');
+Route::get('/api/tracking', [TrackingController::class, 'getTracking'])
+    ->middleware(CekHakAkses::class . ':tracking');
+Route::post('/api/tracking', [TrackingController::class, 'store'])
+    ->middleware(CekHakAkses::class . ':tracking');
 
-Route::get('/api/tracking', [TrackingController::class, 'getTracking']);
-Route::post('/api/tracking', [TrackingController::class, 'store']);
+// Kasir (akses:kasir)
+Route::get('/kasir', [KasirController::class, 'index'])
+    ->name('kasir.index')
+    ->middleware(CekHakAkses::class . ':kasir');
+Route::post('/api/transaksi', [TransaksiController::class, 'store'])
+    ->middleware(CekHakAkses::class . ':kasir');
+Route::get('/api/no-transaksi-baru', [TransaksiController::class, 'getNoTransaksiBaru'])
+    ->middleware(CekHakAkses::class . ':kasir');
 
-Route::get('/kasir', [KasirController::class, 'index'])->name('kasir.index');
-Route::post('/api/transaksi', [TransaksiController::class, 'store']);
-Route::get('/api/no-transaksi-baru', [TransaksiController::class, 'getNoTransaksiBaru']);
+// Pembelian (akses:pembelian)
+Route::get('/pembelian', [PembelianController::class, 'index'])
+    ->name('pembelian.index')
+    ->middleware(CekHakAkses::class . ':pembelian');
 
-Route::get('/pengguna', [PenggunaController::class, 'index'])->name('pengguna.index');
+// Aktivitas (akses:aktivitas)
+Route::get('/aktivitas', [AktivitasController::class, 'index'])
+    ->name('aktivitas.index')
+    ->middleware(CekHakAkses::class . ':aktivitas');
 
-Route::get('/pembelian', [PembelianController::class, 'index'])->name('pembelian.index');
-
-Route::get('/aktivitas', [AktivitasController::class, 'index'])->name('aktivitas.index');
-
+// Tambahkan route lain dengan cara yang sama sesuai kebutuhan hak akses

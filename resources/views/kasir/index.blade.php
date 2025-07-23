@@ -63,14 +63,14 @@
         <!-- Row 2: Tabel Keranjang & Total Bayar -->
         <div class="row g-3 mb-3">
             <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-light">
+                <div class="card shadow-sm border-0 rounded-4">
+                    <div class="card-header bg-white fw-bold">
                         <strong>DAFTAR BELANJA</strong>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive" style="max-height: 350px;">
                             <table class="table table-striped table-hover align-middle mb-0" id="keranjangTable">
-                                <thead class="table-light border-bottom fw-semibold"
+                                <thead class="table fw-semibold"
                                     style="position: sticky; top: 0; z-index: 1;">
                                     <tr>
                                         <th style="min-width: 120px;">Produk</th>
