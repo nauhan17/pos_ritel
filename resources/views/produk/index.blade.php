@@ -78,17 +78,16 @@
         </div>
     </div>
     <div class="row g-3 mb-1">
-        <div class="col-md-4">
-            <div class="btn-group">
+        <div class="col-md-4 d-flex align-items-center gap-2">
+            <button id="editTableBtn" class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center"
+                style="width: 40px; height: 40px;" data-bs-toggle="modal" data-bs-target="#editTableModal" title="Edit Mode">
+                <i class="fas fa-pencil-alt"></i>
+            </button>
+            <div class="btn-group ms-2">
                 <button id="baruProdukBtn" class="btn btn-primary" style="width: 120px;" data-bs-toggle="modal" data-bs-target="#baruProdukModal">
                     <span class="d-flex align-items-center justify-content-center gap-2">
                         <i class="fas fa-plus"></i>
                         <span>Baru</span>
-                    </span>
-                </button>
-                <button id="editTableBtn" class="btn btn-warning" style="width: 120px;" data-bs-toggle="modal" data-bs-target="#editTableModal">
-                    <span class="d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-edit"></i>
                     </span>
                 </button>
                 <button id="aturProdukBtn" class="btn btn-secondary" style="width: 120px;" data-bs-toggle="modal" data-bs-target="#aturProdukModal">
@@ -107,10 +106,10 @@
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group">
-                <button class="btn btn-success" data-bs-toggle="tooltip" title="Export ke Excel">
+                <button class="btn btn-success" id="exportExcelBtn" data-bs-toggle="tooltip" title="Export ke Excel">
                     <i class="fas fa-file-excel"></i>
                 </button>
-                <button class="btn btn-danger" data-bs-toggle="tooltip" title="Export ke PDF">
+                <button class="btn btn-danger" id="exportPdfBtn" data-bs-toggle="tooltip" title="Export ke PDF">
                     <i class="fas fa-file-pdf"></i>
                 </button>
             </div>
@@ -161,6 +160,22 @@
                 {{-- Data produk diisi JS --}}
             </tbody>
         </table>
+        <!-- Pagination Controls -->
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <div>
+                <label class="me-2">Tampilkan</label>
+                <select id="produkPageSize" class="form-select d-inline-block" style="width: 80px;">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <span class="ms-2">data per halaman</span>
+            </div>
+            <nav>
+                <ul class="pagination mb-0" id="produkPagination"></ul>
+            </nav>
+        </div>
     </div>
 
     <!-- Modal Tambah Produk -->
@@ -176,31 +191,31 @@
                         <div class="row g-3">
                             <div class="mb-3">
                                 <label class="form-label">Nama Produk</label>
-                                <input type="text" class="form-control" name="nama_produk" required>
+                                <input type="text" class="form-control" name="nama_produk" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Kategori</label>
-                                <input type="text" class="form-control" name="kategori">
+                                <input type="text" class="form-control" name="kategori" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Supplier</label>
-                                <input type="text" class="form-control" name="supplier">
+                                <input type="text" class="form-control" name="supplier" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Stok</label>
-                                <input type="number" class="form-control" name="stok" value="0">
+                                <input type="number" class="form-control" name="stok" value="0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Satuan</label>
-                                <input type="text" class="form-control" name="satuan">
+                                <input type="text" class="form-control" name="satuan" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Harga Beli</label>
-                                <input type="text" class="form-control" name="harga_beli">
+                                <input type="text" class="form-control" name="harga_beli" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Harga Jual</label>
-                                <input type="text" class="form-control" name="harga_jual">
+                                <input type="text" class="form-control" name="harga_jual" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                             <div class="mb-3">
                                 <button type="button" id="btnSimpanProdukBaru" class="btn btn-primary w-100">

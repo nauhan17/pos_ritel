@@ -14,7 +14,6 @@
 <body>
     <div class="container-content">
         @include('partials.sidebar')
-        @include('partials.navbar')
         <div class="main-content">
             @yield('content')
         </div>
@@ -26,6 +25,7 @@
     <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; width: 300px;"></div>
 
     <!-- JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>

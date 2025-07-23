@@ -54,6 +54,11 @@ document.addEventListener('DOMContentLoaded', function () {
         barcodes: {}
     };
 
+    const pagination = {
+        page: 1,
+        pageSize: 10
+    };
+
     // INITIALIZATION FUNCTIONS
     function init() {
         loadData(state.currentSort.field, state.currentSort.direction);
@@ -102,6 +107,8 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('editTableBtn').addEventListener('click', enterEditMode);
         document.getElementById('exitEditModeBtn').addEventListener('click', exitEditMode);
         document.getElementById('saveEditProdukBtn').addEventListener('click', saveEditProduk);
+        document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+        document.getElementById('exportPdfBtn').addEventListener('click', exportToPdf);
 
         document.addEventListener('click', async function(e) {
             if (e.target.classList.contains('btn-save-add-tab')) {
@@ -132,6 +139,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 hapusDiskon(diskonId, button);
             }
         });
+
+        document.getElementById('produkPagination').addEventListener('click', function(e) {
+            e.preventDefault();
+            const page = parseInt(e.target.getAttribute('data-page'));
+            if (!isNaN(page) && page > 0) {
+                pagination.page = page;
+                applyFilters(false); // or renderTable(state.allProducts);
+            }
+        });
+
+        document.getElementById('produkPageSize').addEventListener('change', function() {
+            pagination.pageSize = parseInt(this.value);
+            pagination.page = 1;
+            applyFilters(); // or renderTable(state.allProducts);
+        });
+
 
         // --- BARCODE EVENTS ---
         document.addEventListener('click', function(e) {
@@ -255,6 +278,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function renderTable(data) {
+        // Pagination
+        const totalData = data.length;
+        const totalPages = Math.ceil(totalData / pagination.pageSize);
+        const startIdx = (pagination.page - 1) * pagination.pageSize;
+        const endIdx = startIdx + pagination.pageSize;
+        const pagedData = data.slice(startIdx, endIdx);
+
         if (!Array.isArray(data)) {
             console.error('Invalid data format:', data);
             DOM.table.body.innerHTML = `
@@ -280,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const satuanFilterValue = DOM.filters.unit.value;
 
-        DOM.table.body.innerHTML = data.map(item => {
+        DOM.table.body.innerHTML = pagedData.map(item => {
             const isSelected = state.selectedProduk.some(p => p.id == item.id);
             // Hitung stok sesuai filter satuan
             const stokTampil = getStokBySatuan(item, satuanFilterValue);
@@ -306,13 +336,38 @@ document.addEventListener('DOMContentLoaded', function () {
         }).join('');
 
         DOM.table.selectAll.checked = state.selectedProduk.length > 0 &&
-        state.selectedProduk.length === data.length;
+        state.selectedProduk.length === pagedData.length;
+        renderPagination(totalPages, pagination.page);
     }
 
-    function applyFilters() {
-        const { supplier, kategori, unit } = DOM.filters;
+    function renderPagination(totalPages, currentPage) {
+        const paginationEl = document.getElementById('produkPagination');
+        if (!paginationEl) return;
+        let html = '';
 
-        const filteredData = state.allProducts.filter(produk => {
+        // Previous button
+        html += `<li class="page-item${currentPage === 1 ? ' disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">&laquo;</a>
+        </li>`;
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            html += `<li class="page-item${i === currentPage ? ' active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>`;
+        }
+
+        // Next button
+        html += `<li class="page-item${currentPage === totalPages ? ' disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">&raquo;</a>
+        </li>`;
+
+        paginationEl.innerHTML = html;
+    }
+
+    function getFilteredData() {
+        const { supplier, kategori, unit } = DOM.filters;
+        return state.allProducts.filter(produk => {
             const matchKategori = !kategori.value || produk.kategori === kategori.value;
             const matchSupplier = !supplier.value || produk.supplier === supplier.value;
             let matchSatuan = !unit.value
@@ -320,9 +375,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 || (state.konversiSatuan[produk.id] || []).some(
                     k => k.satuan_besar === unit.value || k.satuan_dasar === unit.value
                 );
-                        return matchKategori && matchSupplier && matchSatuan;
-                    });
+            return matchKategori && matchSupplier && matchSatuan;
+        });
+    }
 
+    function applyFilters(resetPage = true) {
+        if (resetPage) pagination.page = 1;
+        const filteredData = getFilteredData();
         renderTable(filteredData);
         updateTotals(filteredData);
     }
@@ -795,18 +854,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function searchProduk(keyword) {
         keyword = (keyword || '').toLowerCase().trim();
+        let filtered;
         if (!keyword) {
-            renderTable(state.allProducts);
-            updateTotals(state.allProducts);
-            return;
+            filtered = getFilteredData();
+        } else {
+            filtered = state.allProducts.filter(produk =>
+                (produk.nama_produk || '').toLowerCase().includes(keyword) ||
+                (produk.kategori || '').toLowerCase().includes(keyword) ||
+                (produk.supplier || '').toLowerCase().includes(keyword)
+            );
         }
-
-        const filtered = state.allProducts.filter(produk =>
-            (produk.nama_produk || '').toLowerCase().includes(keyword) ||
-            (produk.kategori || '').toLowerCase().includes(keyword) ||
-            (produk.supplier || '').toLowerCase().includes(keyword)
-        );
-
         renderTable(filtered);
         updateTotals(filtered);
     }
@@ -2350,6 +2407,39 @@ document.addEventListener('DOMContentLoaded', function () {
             const stok = parseInt(item.stok) || 0;
             return sum + (hargaJual * stok);
         }, 0);
+    }
+
+    function exportToExcel() {
+        // Ambil data tabel yang sedang tampil
+        const rows = Array.from(document.querySelectorAll('#sortableTable thead tr, #sortableTable tbody tr'));
+        let csvContent = '';
+        rows.forEach(row => {
+            const cols = Array.from(row.querySelectorAll('th,td')).map(col => `"${col.innerText.replace(/"/g, '""')}"`);
+            csvContent += cols.join(',') + '\r\n';
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'data-produk.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function exportToPdf() {
+        // Menggunakan html2pdf.js (pastikan sudah include di layout/app.blade.php)
+        const table = document.getElementById('sortableTable');
+        const opt = {
+            margin:       0.3,
+            filename:     'data-produk.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'A4', orientation: 'landscape' }
+        };
+        html2pdf().from(table).set(opt).save();
     }
 
     // TRACKING

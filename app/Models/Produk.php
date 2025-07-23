@@ -28,7 +28,7 @@ class Produk extends Model
 
     public function barcodes()
     {
-        return $this->hasMany(Barcode::class);
+        return $this->hasMany(Barcode::class, 'produk_id');
     }
 
     public function utamaBarcode()

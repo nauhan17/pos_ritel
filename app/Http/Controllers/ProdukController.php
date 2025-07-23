@@ -30,7 +30,7 @@ class ProdukController extends Controller
         $validSorts = ['nama_produk', 'kategori', 'supplier', 'stok', 'satuan', 'harga_beli', 'harga_jual', 'timestamps'];
         $sort = in_array($sort, $validSorts) ? $sort : 'nama_produk';
 
-        $produk = Produk::with('konversiSatuan')->orderBy($sort, $order)->get();
+        $produk = Produk::with('konversiSatuan', 'barcodes')->orderBy($sort, $order)->get();
 
         return response()->json($produk);
     }

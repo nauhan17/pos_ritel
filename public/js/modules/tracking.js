@@ -73,6 +73,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return `<span class="badge bg-secondary d-block text-center">BARCODE PRODUK</span>`;
             case 'diskon':
                 return `<span class="badge bg-secondary d-block text-center">DISKON PRODUK</span>`;
+            case 'lunas':
+                return `<span class="badge bg-success d-block text-center">TRANSAKSI LUNAS</span>`;
+            case 'hutang':
+                return `<span class="badge bg-danger d-block text-center">TRANSAKSI HUTANG</span>`;
             default:
                 return `<span class="badge bg-secondary d-block text-center">${aksi}</span>`;
         }

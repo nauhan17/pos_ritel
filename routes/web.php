@@ -3,6 +3,8 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\TrackingController;
+use App\Http\Controllers\TransaksiController;
+use App\Http\Controllers\PembelianController;
 
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\StokController;
@@ -47,8 +49,13 @@ Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.in
 Route::get('/api/tracking', [TrackingController::class, 'getTracking']);
 Route::post('/api/tracking', [TrackingController::class, 'store']);
 
-
 Route::get('/kasir', [KasirController::class, 'index'])->name('kasir.index');
-Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.index');
-Route::get('/aktivitas', [AktivitasController::class, 'index'])->name('aktivitas.index');
+Route::post('/api/transaksi', [TransaksiController::class, 'store']);
+Route::get('/api/no-transaksi-baru', [TransaksiController::class, 'getNoTransaksiBaru']);
+
 Route::get('/pengguna', [PenggunaController::class, 'index'])->name('pengguna.index');
+
+Route::get('/pembelian', [PembelianController::class, 'index'])->name('pembelian.index');
+
+Route::get('/aktivitas', [AktivitasController::class, 'index'])->name('aktivitas.index');
+
