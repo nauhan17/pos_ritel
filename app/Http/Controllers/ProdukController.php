@@ -24,6 +24,18 @@ class ProdukController extends Controller
     }
 
     public function endpoint(Request $request){
+        if (!session('pengguna')) {
+            return response()->json(['message' => 'Session pengguna tidak ditemukan'], 401);
+        }
+        $aksesArr = is_array(session('pengguna.akses'))
+            ? session('pengguna.akses')
+            : json_decode(session('pengguna.akses') ?? '[]', true);
+
+        // Debug: cek hak akses
+        if (empty($aksesArr)) {
+            return response()->json(['message' => 'Hak akses kosong'], 403);
+        }
+
         $sort = $request->get('sort', 'nama_produk');
         $order = $request->get('order', 'asc');
 

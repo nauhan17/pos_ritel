@@ -23,13 +23,24 @@ class LoginController extends Controller
         $pengguna = Pengguna::where('email', $request->email)->first();
 
         if ($pengguna && Hash::check($request->password, $pengguna->password) && $pengguna->is_active) {
-            // Simpan data pengguna ke session
+            // Pastikan akses selalu array
+            $akses = $pengguna->akses;
+            if (is_string($akses)) {
+                $aksesArr = json_decode($akses, true);
+                if (json_last_error() !== JSON_ERROR_NONE || !$aksesArr) {
+                    // Jika gagal decode, jadikan array dari string
+                    $aksesArr = [$akses];
+                }
+            } else {
+                $aksesArr = (array) $akses;
+            }
+
             session(['pengguna' => [
                 'id' => $pengguna->id,
                 'nama' => $pengguna->nama,
                 'email' => $pengguna->email,
                 'no_hp' => $pengguna->no_hp,
-                'akses' => $pengguna->akses,
+                'akses' => $aksesArr,
                 'is_active' => $pengguna->is_active
             ]]);
             return response()->json([
@@ -37,9 +48,5 @@ class LoginController extends Controller
                 'pengguna' => session('pengguna')
             ]);
         }
-        return response()->json([
-            'success' => false,
-            'message' => 'Email atau password salah, atau akun nonaktif!'
-        ]);
     }
 }

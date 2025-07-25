@@ -15,9 +15,6 @@ use App\Http\Controllers\AktivitasController;
 use App\Http\Controllers\PenggunaController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
 
 // Login routes (tanpa middleware)
 Route::get('/login', [LoginController::class, 'index'])->name('login.index');
@@ -26,10 +23,12 @@ Route::post('/api/login', [LoginController::class, 'proses']);
 // Pengguna (akses:pengguna)
 Route::resource('pengguna', PenggunaController::class)
     ->middleware(CekHakAkses::class . ':pengguna');
+
 Route::prefix('api')->middleware(CekHakAkses::class . ':pengguna')->group(function() {
     Route::get('/pengguna', [PenggunaController::class, 'endpoint']);
     Route::post('/pengguna', [PenggunaController::class, 'store']);
-    Route::put('/pengguna/{id}', [PenggunaController::class, 'update']);
+    Route::get('/pengguna/{id}', [PenggunaController::class, 'show']); // Kembali ke show
+    Route::put('/pengguna/{id}', [PenggunaController::class, 'update']); // Kembali ke update
     Route::delete('/pengguna/{id}', [PenggunaController::class, 'destroy']);
 });
 
@@ -42,8 +41,12 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 Route::get('/produk', [ProdukController::class, 'index'])
     ->name('produk.index')
     ->middleware(CekHakAkses::class . ':produk');
+
+// API Produk - pisahkan route GET untuk kasir
+Route::get('/api/produk', [ProdukController::class, 'endpoint'])
+    ->middleware(CekHakAkses::class . ':produk,kasir'); // Kasir dan produk bisa akses
+
 Route::prefix('api')->middleware(CekHakAkses::class . ':produk')->group(function() {
-    Route::get('/produk', [ProdukController::class, 'endpoint']);
     Route::post('/produk', [ProdukController::class, 'store']);
     Route::put('/produk/{id}', [ProdukController::class, 'update']);
     Route::delete('/produk/delete-multiple', [ProdukController::class, 'destroyMultiple']);
@@ -64,10 +67,10 @@ Route::prefix('api')->middleware(CekHakAkses::class . ':produk')->group(function
 Route::get('/tracking', [TrackingController::class, 'index'])
     ->name('tracking.index')
     ->middleware(CekHakAkses::class . ':tracking');
-Route::get('/api/tracking', [TrackingController::class, 'getTracking'])
-    ->middleware(CekHakAkses::class . ':tracking');
-Route::post('/api/tracking', [TrackingController::class, 'store'])
-    ->middleware(CekHakAkses::class . ':tracking');
+Route::prefix('api')->middleware(CekHakAkses::class . ':tracking')->group(function() {
+    Route::get('/tracking', [TrackingController::class, 'getTracking']);
+    Route::post('/tracking', [TrackingController::class, 'store']);
+});
 
 // Kasir (akses:kasir)
 Route::get('/kasir', [KasirController::class, 'index'])
@@ -88,4 +91,7 @@ Route::get('/aktivitas', [AktivitasController::class, 'index'])
     ->name('aktivitas.index')
     ->middleware(CekHakAkses::class . ':aktivitas');
 
-// Tambahkan route lain dengan cara yang sama sesuai kebutuhan hak akses
+Route::post('/logout', function() {
+    session()->forget('pengguna');
+    return redirect('/login');
+})->name('logout');

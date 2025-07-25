@@ -218,7 +218,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // DATA LOADING AND TABLE FUNCTIONS
     async function loadData(sortField, sortDirection) {
         try {
-            const response = await fetch(`/api/produk?sort=${sortField}&order=${sortDirection}`);
+            const response = await fetch(`/api/produk?sort=${sortField}&order=${sortDirection}`, {
+                credentials: 'same-origin',
+            });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Gagal memuat data');
@@ -645,7 +647,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'X-CSRF-TOKEN': DOM.meta.csrfToken,
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(Object.fromEntries(formData))
+                body: JSON.stringify(Object.fromEntries(formData)),
+                credentials: 'same-origin'
             });
 
             const data = await response.json();
@@ -705,7 +708,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         'X-CSRF-TOKEN': DOM.meta.csrfToken,
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(data),
+                    credentials: 'same-origin'
                 });
                 const result = await response.json();
                 results.push({
@@ -823,7 +827,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 body: JSON.stringify({
                     ids: state.selectedProduk.map(p => p.id)
-                })
+                }),
+                credentials: 'same-origin'
             });
 
             if (!response.ok) {
@@ -979,7 +984,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const satuanListBody = document.querySelector(`.satuan-list-body[data-produk-id="${produkId}"]`);
 
         try {
-            const response = await fetch(`/api/produk/${produkId}/satuan`);
+            const response = await fetch(`/api/produk/${produkId}/satuan`, {
+                credentials: 'same-origin'
+            });
             const satuanList = await response.json();
 
             // Update state
@@ -1066,7 +1073,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': DOM.meta.csrfToken
                 },
-                body: JSON.stringify(satuanData)
+                body: JSON.stringify(satuanData),
+                credentials: 'same-origin'
             });
 
             const result = await response.json();
@@ -1133,7 +1141,8 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const response = await fetch(`/api/produk/satuan/${satuanId}`, {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken }
+                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken },
+                credentials: 'same-origin'
             });
 
             if (!response.ok) {
@@ -1253,7 +1262,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function loadBarcodeProduk(produkId) {
         try {
-            const response = await fetch(`/api/produk/${produkId}/barcode`);
+            const response = await fetch(`/api/produk/${produkId}/barcode`, {
+                credentials: 'same-origin'
+            });
             const barcodeList = await response.json();
 
             state.barcodes[produkId] = barcodeList;
@@ -1417,7 +1428,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': DOM.meta.csrfToken
                         },
-                        body: JSON.stringify(barcodeData)
+                        body: JSON.stringify(barcodeData),
+                        credentials: 'same-origin'
                     });
 
                     const result = await response.json();
@@ -1517,7 +1529,8 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const response = await fetch(`/api/produk/barcode/${barcodeId}`, {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken }
+                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken },
+                credentials: 'same-origin'
             });
 
             if (!response.ok) throw new Error('Gagal menghapus');
@@ -1536,7 +1549,8 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const response = await fetch(`/api/produk/barcode/${barcodeId}/set-utama`, {
                 method: 'PUT',
-                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken }
+                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken },
+                credentials: 'same-origin'
             });
 
             if (!response.ok) {
@@ -1883,7 +1897,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function loadDiskonProduk(produkId) {
         try {
-            const response = await fetch(`/api/produk/${produkId}/diskon`);
+            const response = await fetch(`/api/produk/${produkId}/diskon`, {
+                credentials: 'same-origin'
+            });
             const diskonList = await response.json();
 
             const diskonListBody = document.querySelector(`.diskon-list-body[data-produk-id="${produkId}"]`);
@@ -1977,7 +1993,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': DOM.meta.csrfToken
                 },
-                body: JSON.stringify(diskonData)
+                body: JSON.stringify(diskonData),
+                credentials: 'same-origin'
             });
 
             const result = await response.json();
@@ -2042,7 +2059,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 headers: {
                     'X-CSRF-TOKEN': DOM.meta.csrfToken,
                     'Accept': 'application/json'
-                }
+                },
+                credentials: 'same-origin'
             });
 
             if (!response.ok) {
@@ -2192,7 +2210,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'X-CSRF-TOKEN': DOM.meta.csrfToken,
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ [field]: newValue })
+                body: JSON.stringify({ [field]: newValue }),
+                credentials: 'same-origin'
             });
 
             const contentType = response.headers.get('content-type');
@@ -2450,7 +2469,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': DOM.meta.csrfToken
             },
-            body: JSON.stringify(trackingData)
+            body: JSON.stringify(trackingData),
+            credentials: 'same-origin'
         });
     }
 

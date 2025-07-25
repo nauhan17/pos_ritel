@@ -37,7 +37,7 @@
     <!-- Modal Register Pengguna -->
     <div class="modal fade" id="modalTambahPengguna" tabindex="-1" aria-labelledby="modalTambahLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <form action="{{ route('pengguna.store') }}" method="POST" autocomplete="off">
+            <form method="POST" autocomplete="off" id="formTambahPengguna">
                 @csrf
                 <div class="modal-content">
                     <div class="modal-header">
@@ -90,6 +90,80 @@
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+    <!-- Modal Edit Pengguna -->
+    <div class="modal fade" id="modalEditPengguna" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Pengguna</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" id="formEditPengguna">
+                    <div class="modal-body">
+                        <div class="row g">
+                            <input type="hidden" id="editPenggunaId" name="id">
+
+                            <div class="mb-3">
+                                <label for="editNama" class="form-label">Nama</label>
+                                <input type="text" class="form-control" id="editNama" name="nama" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="editEmail" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="editEmail" name="email" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="editNoHp" class="form-label">No HP</label>
+                                <input type="text" class="form-control" id="editNoHp" name="no_hp" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editPassword" class="form-label">Password Baru</label>
+                                <input type="password" class="form-control" id="editPassword" name="password" autocomplete="new-password">
+                                <small class="text-muted">Kosongkan jika tidak ingin mengubah password</small>
+                            </div>
+                            <!-- Perbaiki checkbox style agar konsisten -->
+                            <div class="mb-3">
+                                <label class="form-label">Hak Akses</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="akses[]" value="dashboard" id="editDashboard">
+                                        <label class="form-check-label" for="editDashboard">Dashboard</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="akses[]" value="produk" id="editProduk">
+                                        <label class="form-check-label" for="editProduk">Produk</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="akses[]" value="kasir" id="editKasir">
+                                        <label class="form-check-label" for="editKasir">Kasir</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="akses[]" value="tracking" id="editTracking">
+                                        <label class="form-check-label" for="editTracking">Tracking</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="akses[]" value="pengguna" id="editPengguna">
+                                        <label class="form-check-label" for="editPengguna">Pengguna</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="editIsActive" name="is_active" value="1">
+                                    <label class="form-check-label" for="editIsActive">Status Aktif</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
     @push('scripts')

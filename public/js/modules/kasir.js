@@ -178,7 +178,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'X-CSRF-TOKEN': DOM.meta.csrfToken,
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(transaksiData)
+                body: JSON.stringify(transaksiData),
+                credentials: 'same-origin',
             });
             const result = await res.json();
             if (result.success) {
@@ -338,7 +339,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function loadProdukList() {
         try {
-            const res = await fetch('/api/produk');
+            const res = await fetch('/api/produk', {
+                credentials: 'same-origin'
+            });
             const data = await res.json();
             state.produkList = data.map(p => ({
                 id: p.id,
@@ -355,7 +358,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function getNoTransaksiBaru() {
         try {
-            const res = await fetch('/api/no-transaksi-baru');
+            const res = await fetch('/api/no-transaksi-baru', {
+                credentials: 'same-origin',
+            })
             const data = await res.json();
             document.getElementById('noTransaksi').value = data.no_transaksi;
         } catch (e) {
@@ -386,7 +391,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': DOM.meta.csrfToken
             },
-            body: JSON.stringify(trackingData)
+            body: JSON.stringify(trackingData),
+            credentials: 'same-origin'
         });
     }
 

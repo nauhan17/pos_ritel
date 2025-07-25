@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadTrackingData(sortField = 'created_at', sortDirection = 'desc') {
         try {
-            const res = await fetch(`/api/tracking?sort=${sortField}&order=${sortDirection}`);
+            const res = await fetch(`/api/tracking?sort=${sortField}&order=${sortDirection}`,{
+                credentials: 'same-origin'
+            });
             const json = await res.json();
             state.allTracking = json.data || [];
             renderTable(state.allTracking);
@@ -159,7 +161,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (aksi) url += `&aksi=${aksi}`;
 
         try {
-            const res = await fetch(url);
+            const res = await fetch(url, {
+                credentials: 'same-origin'
+            });
             const json = await res.json();
             state.allTracking = json.data || [];
             renderTable(state.allTracking);
