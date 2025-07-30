@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CekHakAkses;
+use Illuminate\Support\Facades\Auth;
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProdukController;
@@ -17,14 +18,14 @@ use Illuminate\Support\Facades\Route;
 
 
 // Login routes (tanpa middleware)
-Route::get('/login', [LoginController::class, 'index'])->name('login.index');
+Route::get('/login', [LoginController::class, 'index'])->name('login');
 Route::post('/api/login', [LoginController::class, 'proses']);
 
 // Pengguna (akses:pengguna)
 Route::resource('pengguna', PenggunaController::class)
-    ->middleware(CekHakAkses::class . ':pengguna');
+    ->middleware([CekHakAkses::class . ':pengguna', 'auth']);
 
-Route::prefix('api')->middleware(CekHakAkses::class . ':pengguna')->group(function() {
+Route::prefix('api')->middleware([CekHakAkses::class . ':pengguna', 'auth'])->group(function() {
     Route::get('/pengguna', [PenggunaController::class, 'endpoint']);
     Route::post('/pengguna', [PenggunaController::class, 'store']);
     Route::get('/pengguna/{id}', [PenggunaController::class, 'show']); // Kembali ke show
@@ -35,18 +36,18 @@ Route::prefix('api')->middleware(CekHakAkses::class . ':pengguna')->group(functi
 // Dashboard (akses:dashboard)
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard.index')
-    ->middleware(CekHakAkses::class . ':dashboard');
+    ->middleware([CekHakAkses::class . ':dashboard', 'auth']);
 
 // Produk (akses:produk)
 Route::get('/produk', [ProdukController::class, 'index'])
     ->name('produk.index')
-    ->middleware(CekHakAkses::class . ':produk');
+    ->middleware([CekHakAkses::class . ':produk', 'auth']);
 
 // API Produk - pisahkan route GET untuk kasir
 Route::get('/api/produk', [ProdukController::class, 'endpoint'])
-    ->middleware(CekHakAkses::class . ':produk,kasir'); // Kasir dan produk bisa akses
+    ->middleware([CekHakAkses::class . ':produk', 'auth']); // Kasir dan produk bisa akses
 
-Route::prefix('api')->middleware(CekHakAkses::class . ':produk')->group(function() {
+Route::prefix('api')->middleware([CekHakAkses::class . ':produk', 'auth'])->group(function() {
     Route::post('/produk', [ProdukController::class, 'store']);
     Route::put('/produk/{id}', [ProdukController::class, 'update']);
     Route::delete('/produk/delete-multiple', [ProdukController::class, 'destroyMultiple']);
@@ -66,8 +67,9 @@ Route::prefix('api')->middleware(CekHakAkses::class . ':produk')->group(function
 // Tracking (akses:tracking)
 Route::get('/tracking', [TrackingController::class, 'index'])
     ->name('tracking.index')
-    ->middleware(CekHakAkses::class . ':tracking');
-Route::prefix('api')->middleware(CekHakAkses::class . ':tracking')->group(function() {
+    ->middleware([CekHakAkses::class . ':tracking', 'auth']);
+
+Route::prefix('api')->middleware([CekHakAkses::class . ':tracking', 'auth'])->group(function() {
     Route::get('/tracking', [TrackingController::class, 'getTracking']);
     Route::post('/tracking', [TrackingController::class, 'store']);
 });
@@ -75,23 +77,25 @@ Route::prefix('api')->middleware(CekHakAkses::class . ':tracking')->group(functi
 // Kasir (akses:kasir)
 Route::get('/kasir', [KasirController::class, 'index'])
     ->name('kasir.index')
-    ->middleware(CekHakAkses::class . ':kasir');
+    ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 Route::post('/api/transaksi', [TransaksiController::class, 'store'])
-    ->middleware(CekHakAkses::class . ':kasir');
+    ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 Route::get('/api/no-transaksi-baru', [TransaksiController::class, 'getNoTransaksiBaru'])
-    ->middleware(CekHakAkses::class . ':kasir');
+    ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 
 // Pembelian (akses:pembelian)
 Route::get('/pembelian', [PembelianController::class, 'index'])
     ->name('pembelian.index')
-    ->middleware(CekHakAkses::class . ':pembelian');
+    ->middleware([CekHakAkses::class . ':pembelian', 'auth']);
 
 // Aktivitas (akses:aktivitas)
 Route::get('/aktivitas', [AktivitasController::class, 'index'])
     ->name('aktivitas.index')
-    ->middleware(CekHakAkses::class . ':aktivitas');
+    ->middleware([CekHakAkses::class . ':aktivitas', 'auth']);
 
 Route::post('/logout', function() {
-    session()->forget('pengguna');
+    Auth::logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
     return redirect('/login');
 })->name('logout');

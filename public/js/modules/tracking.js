@@ -68,18 +68,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderAksiBadge(aksi) {
         switch (aksi) {
-            case 'tambah':
+            case 'tambah_produk':
                 return `<span class="badge bg-success d-block text-center">PRODUK BARU</span>`;
-            case 'edit':
+            case 'edit_produk':
                 return `<span class="badge bg-warning text-dark d-block text-center">EDIT PRODUK</span>`;
-            case 'hapus':
+            case 'tambah_barcode':
+                return `<span class="badge bg-success d-block text-center">TAMBAH BARCODE</span>`;
+            case 'hapus_barcode':
+                return `<span class="badge bg-danger d-block text-center">HAPUS BARCODE</span>`;
+            case 'tambah_satuan':
+                return `<span class="badge bg-success d-block text-center">TAMBAH SATUAN</span>`;
+            case 'hapus_satuan':
+                return `<span class="badge bg-danger d-block text-center">HAPUS SATUAN</span>`;
+            case 'tambah_diskon':
+                return `<span class="badge bg-success d-block text-center">TAMBAH DISKON</span>`;
+            case 'hapus_diskon':
+                return `<span class="badge bg-danger d-block text-center">HAPUS DISKON</span>`;
+            case 'hapus_produk':
                 return `<span class="badge bg-danger d-block text-center">HAPUS PRODUK</span>`;
-            case 'satuan':
-                return `<span class="badge bg-secondary d-block text-center">SATUAN PRODUK</span>`;
-            case 'barcode':
-                return `<span class="badge bg-secondary d-block text-center">BARCODE PRODUK</span>`;
-            case 'diskon':
-                return `<span class="badge bg-secondary d-block text-center">DISKON PRODUK</span>`;
             case 'lunas':
                 return `<span class="badge bg-success d-block text-center">TRANSAKSI LUNAS</span>`;
             case 'hutang':
@@ -110,6 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${item.produk ? item.produk.nama_produk : (item.nama_produk || '-')}</td>
                 <td class="pe-3" style="width: 150px;">${renderAksiBadge(item.aksi)}</td>
                 <td>${item.keterangan || '-'}</td>
+                <td>${item.pengguna || '-'}</td>
                 <td>${formatDateTime(item.created_at)}</td>
             </tr>
         `).join('');

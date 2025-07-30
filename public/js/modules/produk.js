@@ -1,57 +1,35 @@
+// SIMPLIFIED: Keep only essential functions
 document.addEventListener('DOMContentLoaded', function () {
 
     const DOM = {
         meta: {
             csrfToken: document.querySelector('meta[name="csrf-token"]').content
         },
-
         table: {
             body: document.getElementById('tableBody'),
             selectAll: document.getElementById('selectAll'),
             sortableHeaders: document.querySelectorAll('.sortable')
         },
-
         modals: {
             baru: new bootstrap.Modal('#baruProdukModal'),
-            atur: new bootstrap.Modal('#aturProdukModal'),
             hapus: new bootstrap.Modal('#hapusProdukModal')
         },
-
-        buttons: {
-            product: {
-                edit: document.getElementById('editProdukBtn'),
-                delete: document.getElementById('deleteBtn'),
-                editToggle: document.getElementById('editToggleBtn')
-            }
-        },
-
         filters: {
             kategori: document.getElementById('kategoriFilter'),
             supplier: document.getElementById('supplierFilter'),
-            unit: document.getElementById('satuanFilter')
-        },
-
-        discount: {
-            container: document.getElementById('waktuDiskonContainer'),
-            listBody: document.getElementById('diskonListBody'),
-            emptyMessage: document.getElementById('emptyDiskonMessage'),
-            form: document.getElementById('diskonForm')
         }
     };
 
     const state = {
         currentSort: { field: 'nama_produk', direction: 'asc' },
-        totals: {
-            produk: 0,
-            stok: 0,
-            modal: 0,
-            nilaiProduk: 0
-        },
+        totals: { produk: 0, stok: 0, modal: 0, nilaiProduk: 0 },
         allProducts: [],
         isEditMode: false,
         selectedProduk: [],
-        konversiSatuan: {},
-        barcodes: {}
+        newProduct: { barcodes: [] }, // SIMPLIFIED: hanya barcode
+        currentStep: 1,
+        maxStep: 3,
+        productDrafts: {}
     };
 
     const pagination = {
@@ -59,201 +37,429 @@ document.addEventListener('DOMContentLoaded', function () {
         pageSize: 10
     };
 
-    // INITIALIZATION FUNCTIONS
+    // INITIALIZATION
     function init() {
         loadData(state.currentSort.field, state.currentSort.direction);
         setupEventListeners();
     }
 
     function setupEventListeners() {
-        // --- TABLE & FILTER EVENTS ---
-        DOM.table.sortableHeaders.forEach(header => header.addEventListener('click', handleSort));
-        DOM.filters.kategori.addEventListener('change', applyFilters);
-        DOM.filters.supplier.addEventListener('change', applyFilters);
-        DOM.filters.unit.addEventListener('change', applyFilters);
-        DOM.table.selectAll.addEventListener('change', handleSelectedRow);
+        if (window.produkEventListenersAttached) return;
 
-        DOM.table.body.removeEventListener('click', handleTableClick);
-        DOM.table.body.addEventListener('click', handleTableClick);
-        DOM.table.body.addEventListener('change', function(e) {
+        // Table interactions
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('#tableBody')) {
+                handleTableClick(e);
+            }
+            if (e.target.closest('#produkPagination')) {
+                e.preventDefault();
+                const page = parseInt(e.target.getAttribute('data-page'));
+                if (!isNaN(page) && page > 0) {
+                    pagination.page = page;
+                    performSimpleSearch();
+                }
+            }
+        });
+
+        const pageSizeSelect = document.getElementById('produkPageSize');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', function(e) {
+                pagination.pageSize = parseInt(e.target.value);
+                pagination.page = 1;
+                performSimpleSearch();
+            });
+        }
+
+        document.addEventListener('change', function(e) {
             if (e.target.classList.contains('row-checkbox')) {
                 handleRowCheckboxChange(e.target);
             }
         });
 
-        document.getElementById('produkSidebarMenu').addEventListener('click', function(e) {
-            const btn = e.target.closest('.btn-sidebar-modal');
-            if (!btn) return;
-            const menu = btn.dataset.menu;
-            renderAturProdukSidebar(menu);
-        });
+        // Search
+        const searchInput = document.getElementById('searchProdukInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', performSimpleSearch);
+        }
 
-        document.getElementById('searchProdukInput').addEventListener('input', function() {
-            searchProduk(this.value);
-        });
+        // Export buttons
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+        const exportPdfBtn = document.getElementById('exportPdfBtn');
+        if (exportExcelBtn) {
+            exportExcelBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                exportToExcel();
+            });
+        }
+        if (exportPdfBtn) {
+            exportPdfBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                exportToPdf();
+            });
+        }
 
-        document.getElementById('aturProdukBtn').addEventListener('click', function() {
-            renderAturProdukSidebar('edit');
-            DOM.modals.atur.show();
-        });
+        // Filters and sorting
+        DOM.table.sortableHeaders.forEach(header => header.addEventListener('click', handleSort));
+        DOM.filters.kategori.addEventListener('change', performSimpleSearch);
+        DOM.filters.supplier.addEventListener('change', performSimpleSearch);
+        DOM.table.selectAll.addEventListener('change', handleSelectedRow);
 
-        document.getElementById('baruProdukBtn').addEventListener('click', function() {
-            DOM.modals.baru.show();
-        });
-
-        // --- PRODUK CRUD EVENTS ---
-        // DOM.buttons.product.editToggle.addEventListener('click', enterEditMode);
-
-        document.getElementById('editTableBtn').addEventListener('click', enterEditMode);
-        document.getElementById('exitEditModeBtn').addEventListener('click', exitEditMode);
-        document.getElementById('saveEditProdukBtn').addEventListener('click', saveEditProduk);
-        document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
-        document.getElementById('exportPdfBtn').addEventListener('click', exportToPdf);
-
-        document.addEventListener('click', async function(e) {
-            if (e.target.classList.contains('btn-save-add-tab')) {
-                const form = e.target.closest('.add-produk-form');
-                await saveAddProduk(form);
-            }
-        });
-
-        document.getElementById('btnSimpanProdukBaru').addEventListener('click', async function() {
-            const form = document.getElementById('formTambahProduk');
-            await saveAddProduk(form);
-        });
-
+        // Modal buttons - HANYA save button
+        document.getElementById('baruProdukBtn').addEventListener('click', initializeProductModal);
+        document.getElementById('saveProductBtn').addEventListener('click', saveCompleteProduct);
         document.getElementById('hapusProdukBtn').addEventListener('click', deleteSelected);
 
-        // --- DISKON EVENTS ---
-        document.addEventListener('click', function(e) {
-            // Simpan per tab diskon
-            if (e.target.classList.contains('btn-save-diskon-tab')) {
-                const form = e.target.closest('.diskon-form');
-                const produkId = form.dataset.produkId;
-                saveDiskon(form, produkId);
-            }
+        // Modal events
+        const modalElement = document.getElementById('baruProdukModal');
+        if (modalElement) {
+            modalElement.addEventListener('shown.bs.modal', function() {
+                setupModalEventListeners();
+            });
 
-            if (e.target.closest('.btn-hapus-diskon')) {
-                const button = e.target.closest('.btn-hapus-diskon');
-                const diskonId = button.closest('tr').dataset.id;
-                hapusDiskon(diskonId, button);
-            }
-        });
+            modalElement.addEventListener('hidden.bs.modal', function() {
+                // Reset modal state when closed
+                state.newProduct = {
+                    barcodes: [],
+                    konversiSatuan: [],
+                    diskon: []
+                };
 
-        document.getElementById('produkPagination').addEventListener('click', function(e) {
-            e.preventDefault();
-            const page = parseInt(e.target.getAttribute('data-page'));
-            if (!isNaN(page) && page > 0) {
-                pagination.page = page;
-                applyFilters(false); // or renderTable(state.allProducts);
-            }
-        });
-
-        document.getElementById('produkPageSize').addEventListener('change', function() {
-            pagination.pageSize = parseInt(this.value);
-            pagination.page = 1;
-            applyFilters(); // or renderTable(state.allProducts);
-        });
-
-
-        // --- BARCODE EVENTS ---
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('btn-save-barcode')) {
-                const form = e.target.closest('.barcode-form');
-                const produkId = form.dataset.produkId;
-                saveBarcode(form, produkId);
-            }
-            if (e.target.closest('.btn-hapus-barcode')) {
-                const button = e.target.closest('.btn-hapus-barcode');
-                const barcodeId = button.dataset.barcodeId;
-                const produkId = button.dataset.produkId;
-                hapusBarcode(barcodeId, produkId, button);
-            }
-            if (e.target.closest('.btn-set-utama-barcode')) {
-                const button = e.target.closest('.btn-set-utama-barcode');
-                const barcodeId = button.dataset.barcodeId;
-                const produkId = button.dataset.produkId;
-                setAsUtamaBarcode(barcodeId, produkId);
-            }
-            if (e.target.classList.contains('btn-generate-barcode')) {
-                const produkId = e.target.dataset.produkId;
-                generateRandomUPC(produkId);
-            }
-            if (e.target.closest('.btn-cetak-barcode')) {
-                const button = e.target.closest('.btn-cetak-barcode');
-                const barcodeData = button.dataset.barcode;
-                printBarcode(barcodeData);
-            }
-            if (e.target.closest('.btn-cetak-semua-barcode')) {
-                const button = e.target.closest('.btn-cetak-semua-barcode');
-                const produkId = button.dataset.produkId;
-                const barcodes = state.barcodes[produkId] || [];
-                if (barcodes.length === 0) {
-                    showAlert('Tidak ada barcode untuk dicetak', 'warning');
-                    return;
+                // Clear all form inputs
+                const form = document.getElementById('formTambahProduk');
+                if (form) {
+                    form.reset();
+                    form.querySelectorAll('input').forEach(input => {
+                        input.value = '';
+                        input.removeAttribute('value');
+                    });
                 }
-                printAllBarcodes(barcodes);
-            }
-        });
+            });
+        }
 
-        // --- SATUAN EVENTS ---
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('btn-save-satuan')) {
-                const form = e.target.closest('.satuan-form');
-                const produkId = form.dataset.produkId;
-                saveSatuan(form, produkId);
-            }
-            if (e.target.closest('.btn-hapus-satuan')) {
-                const button = e.target.closest('.btn-hapus-satuan');
-                const satuanId = button.dataset.satuanId;
-                const produkId = button.dataset.produkId;
-                hapusSatuan(satuanId, produkId, button);
-            }
-        });
+        // Edit mode buttons
+        const editTableBtn = document.getElementById('editTableBtn');
+        const exitEditModeBtn = document.getElementById('exitEditModeBtn');
+        if (editTableBtn) editTableBtn.addEventListener('click', enterEditMode);
+        if (exitEditModeBtn) exitEditModeBtn.addEventListener('click', exitEditMode);
 
-        // --- DISKON TOGGLE (PERIODE) ---
-        document.addEventListener('change', handleDiscountToggle);
+        window.produkEventListenersAttached = true;
     }
 
-    // DATA LOADING AND TABLE FUNCTIONS
+    // DATA LOADING
     async function loadData(sortField, sortDirection) {
         try {
             const response = await fetch(`/api/produk?sort=${sortField}&order=${sortDirection}`, {
                 credentials: 'same-origin',
             });
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Gagal memuat data');
+                throw new Error('Gagal memuat data');
             }
+
             const produkList = await response.json();
             state.allProducts = produkList;
-
-            state.konversiSatuan = {};
-            produkList.forEach(p => {
-                state.konversiSatuan[p.id] = p.konversi_satuan || [];
-            });
 
             renderTable(state.allProducts);
             updateTotals(state.allProducts);
             populateFilters(state.allProducts);
-            populateSatuanFilter();
+
         } catch (error) {
-            handleDataLoadError(error);
+            console.error('Error:', error);
+            DOM.table.body.innerHTML = `
+                <tr><td colspan="9" class="text-center text-danger">GAGAL MEMUAT DATA: ${error.message}</td></tr>
+            `;
         }
     }
 
-    function handleDataLoadError(error) {
-        console.error('Error:', error);
-        DOM.table.body.innerHTML = `
-            <tr>
-                <td colspan="8" class="text-center text-danger">
-                    GAGAL MEMUAT DATA: ${error.message}
-                </td>
-            </tr>
-        `;
-        updateTotals([]);
+    // SEARCH & FILTER
+    function performSimpleSearch() {
+        const filteredData = getCurrentFilteredData();
+        renderTable(filteredData);
+        updateTotals(filteredData);
+
+        // Update page size selector value
+        const pageSizeSelect = document.getElementById('produkPageSize');
+        if (pageSizeSelect && pageSizeSelect.value != pagination.pageSize) {
+            pageSizeSelect.value = pagination.pageSize;
+        }
     }
 
+    // TABLE RENDERING
+    function renderTable(data) {
+        if (!Array.isArray(data) || data.length === 0) {
+            DOM.table.body.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">TIDAK ADA DATA</td></tr>`;
+            renderPagination(0, 1);
+            return;
+        }
+
+        const totalPages = Math.ceil(data.length / pagination.pageSize);
+
+        // Validasi halaman saat ini
+        if (pagination.page > totalPages) {
+            pagination.page = totalPages;
+        }
+        if (pagination.page < 1) {
+            pagination.page = 1;
+        }
+
+        const startIdx = (pagination.page - 1) * pagination.pageSize;
+        const endIdx = startIdx + pagination.pageSize;
+        const pagedData = data.slice(startIdx, endIdx);
+
+        const selectedIds = new Set(state.selectedProduk.map(p => p.id));
+
+        const rows = pagedData.map(item => {
+            const isSelected = selectedIds.has(item.id);
+            const stok = item.stok || 0;
+            const stokBadge = stok <= 10 ? `<span class="badge bg-danger">${stok}</span>` : `<span class="badge bg-secondary">${stok}</span>`;
+
+            return `
+                <tr data-id="${item.id}">
+                    <td class="text-center">
+                        <input type="checkbox" class="row-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''}>
+                    </td>
+                    <td class="editable-cell" data-field="nama_produk">${item.nama_produk || ''}</td>
+                    <td class="editable-cell" data-field="kategori">${item.kategori || ''}</td>
+                    <td class="editable-cell" data-field="supplier">${item.supplier || ''}</td>
+                    <td class="editable-cell" data-field="satuan">${item.satuan || ''}</td>
+                    <td class="editable-cell" data-field="stok">${stokBadge}</td>
+                    <td class="editable-cell" data-field="harga_beli">${formatCurrency(item.harga_beli)}</td>
+                    <td class="editable-cell" data-field="harga_jual">${formatCurrency(item.harga_jual)}</td>
+                    <td>${formatRelativeDate(item.updated_at)}</td>
+                </tr>
+            `;
+        });
+
+        DOM.table.body.innerHTML = rows.join('');
+        renderPagination(totalPages, pagination.page);
+        updatePaginationInfo(data.length, startIdx + 1, Math.min(endIdx, data.length));
+    }
+
+    function updatePaginationInfo(totalData, startItem, endItem) {
+        const infoElement = document.getElementById('paginationInfo');
+        if (infoElement) {
+            infoElement.textContent = `Menampilkan ${startItem}-${endItem} dari ${totalData} data`;
+        }
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        const paginationEl = document.getElementById('produkPagination');
+        if (!paginationEl || totalPages <= 1) {
+            if (paginationEl) paginationEl.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+
+        // Previous button
+        html += `<li class="page-item${currentPage === 1 ? ' disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}" ${currentPage === 1 ? 'tabindex="-1"' : ''}>
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>`;
+
+        // Page numbers logic
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        // Adjust if we're near the beginning or end
+        if (currentPage <= 3) {
+            endPage = Math.min(5, totalPages);
+        }
+        if (currentPage >= totalPages - 2) {
+            startPage = Math.max(1, totalPages - 4);
+        }
+
+        // First page and ellipsis
+        if (startPage > 1) {
+            html += `<li class="page-item">
+                <a class="page-link" href="#" data-page="1">1</a>
+            </li>`;
+            if (startPage > 2) {
+                html += `<li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>`;
+            }
+        }
+
+        // Page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<li class="page-item${i === currentPage ? ' active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>`;
+        }
+
+        // Last page and ellipsis
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                html += `<li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>`;
+            }
+            html += `<li class="page-item">
+                <a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>
+            </li>`;
+        }
+
+        // Next button
+        html += `<li class="page-item${currentPage === totalPages ? ' disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'tabindex="-1"' : ''}>
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>`;
+
+        paginationEl.innerHTML = html;
+    }
+
+    // RESTORED: IMPORTANT saveCellEdit function
+    async function saveCellEdit(cell) {
+        const row = cell.closest('tr');
+        const produkId = row.dataset.id;
+        const field = cell.dataset.field;
+        let newValue = cell.textContent.trim();
+
+        const originalProduct = state.allProducts.find(p => p.id == produkId);
+        if (!originalProduct) {
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Produk tidak ditemukan',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
+        // Skip jika tidak ada perubahan
+        if (originalProduct[field] == newValue) return;
+
+        try {
+            cell.style.backgroundColor = '#fff3cd'; // Loading indicator
+
+            let updateData = {};
+
+            // Handle different field types dengan parsing yang benar
+            switch (field) {
+                case 'stok':
+                    // Ambil angka dari badge
+                    const stokMatch = newValue.match(/\d+/);
+                    updateData[field] = stokMatch ? parseInt(stokMatch[0]) : 0;
+                    break;
+                case 'harga_beli':
+                case 'harga_jual':
+                    // Parse currency format (Rp 123.456)
+                    updateData[field] = parseInt(newValue.replace(/[^\d]/g, '')) || 0;
+                    break;
+                default:
+                    updateData[field] = newValue;
+            }
+
+            // PERBAIKI: Sesuaikan dengan route di web.php (PUT method)
+            const response = await fetch(`/api/produk/${produkId}`, {
+                method: 'PUT', // Sesuai dengan Route::put('/produk/{id}')
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': DOM.meta.csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+
+            const responseData = await response.json();
+
+            await saveTracking({
+                aksi: 'edit_produk',
+                keterangan: `Edit produk: Edit Tabel kolom ${field} (${originalProduct.nama_produk})`,
+                produk_id: produkId,
+                nama_produk: originalProduct.nama_produk
+            });
+
+            if (response.ok) {
+                // Update state dengan data terbaru
+                Object.assign(originalProduct, updateData);
+
+                // Update updated_at ke waktu sekarang (real time)
+                const now = new Date();
+                originalProduct.updated_at = now.toISOString();
+
+                // Update display dengan format yang benar
+                if (field.includes('harga')) {
+                    cell.textContent = formatCurrency(updateData[field]);
+                } else if (field === 'stok') {
+                    const stok = updateData[field];
+                    const badge = stok <= 10 ? 'bg-danger' : 'bg-secondary';
+                    cell.innerHTML = `<span class="badge ${badge}">${stok}</span>`;
+                }
+
+                // Update kolom updated_at di baris tabel
+                const updatedCell = row.querySelector('td:last-child');
+                if (updatedCell) {
+                    updatedCell.textContent = formatRelativeDate(originalProduct.updated_at);
+                }
+
+                // Success styling
+                cell.style.backgroundColor = '#d1e7dd';
+                setTimeout(() => {
+                    cell.style.backgroundColor = state.isEditMode ? '#f8f9fa' : '';
+                }, 2000);
+
+                // Success notification
+                await Swal.fire({
+                    title: 'Berhasil!',
+                    text: `${field.replace('_', ' ')} berhasil diperbarui`,
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
+
+                // Update totals jika perlu
+                updateTotals(state.allProducts);
+
+            } else {
+                throw new Error(responseData.message || 'Gagal menyimpan perubahan');
+            }
+
+        } catch (error) {
+            console.error('Save error:', error);
+
+            // Restore original value dengan format yang benar
+            if (field.includes('harga')) {
+                cell.textContent = formatCurrency(originalProduct[field] || 0);
+            } else if (field === 'stok') {
+                const stok = originalProduct[field] || 0;
+                const badge = stok <= 10 ? 'bg-danger' : 'bg-secondary';
+                cell.innerHTML = `<span class="badge ${badge}">${stok}</span>`;
+            } else {
+                cell.textContent = originalProduct[field] || '';
+            }
+
+            cell.style.backgroundColor = '#f8d7da';
+            setTimeout(() => {
+                cell.style.backgroundColor = state.isEditMode ? '#f8f9fa' : '';
+            }, 2000);
+
+            // Error notification
+            await Swal.fire({
+                title: 'Gagal Menyimpan!',
+                html: `
+                    <div class="text-center">
+                        <p class="mb-2">Terjadi kesalahan saat menyimpan:</p>
+                        <div class="alert alert-danger">
+                            ${error.message}
+                        </div>
+                    </div>
+                `,
+                icon: 'error',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#dc3545'
+            });
+        }
+    }
+
+    // SORTING
     function handleSort() {
         const sortField = this.getAttribute('data-sort');
 
@@ -279,2200 +485,1731 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function renderTable(data) {
-        // Pagination
-        const totalData = data.length;
-        const totalPages = Math.ceil(totalData / pagination.pageSize);
-        const startIdx = (pagination.page - 1) * pagination.pageSize;
-        const endIdx = startIdx + pagination.pageSize;
-        const pagedData = data.slice(startIdx, endIdx);
+    // MODAL MANAGEMENT - SIMPLIFIED
+    function initializeProductModal() {
+        const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+        const isEditMode = selectedCheckboxes.length > 0;
 
-        if (!Array.isArray(data)) {
-            console.error('Invalid data format:', data);
-            DOM.table.body.innerHTML = `
-                <tr>
-                    <td colspan="8" class="text-center text-danger">
-                        FORMAT DATA TIDAK VALID
-                    </td>
-                </tr>
-            `;
-            return;
-        }
+        // Reset product state
+        state.newProduct = {
+            barcodes: [],
+            konversiSatuan: [],
+            diskon: []
+        };
 
-        if (data.length === 0) {
-            DOM.table.body.innerHTML = `
-                <tr>
-                    <td colspan="8" class="text-center">
-                        TIDAK ADA DATA
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        const satuanFilterValue = DOM.filters.unit.value;
-
-        DOM.table.body.innerHTML = pagedData.map(item => {
-            const isSelected = state.selectedProduk.some(p => p.id == item.id);
-            // Hitung stok sesuai filter satuan
-            const stokTampil = getStokBySatuan(item, satuanFilterValue);
-
-            const stokBadge = stokTampil <= 10
-            ? `<span class="badge bg-danger">${stokTampil}</span>`
-            : `<span class="badge bg-secondary">${stokTampil}</span>`;
-            return `
-                <tr data-id="${item.id}">
-                    <td class="text-center">
-                        <input type="checkbox" class="row-checkbox" data-id="${item.id}"
-                            ${isSelected ? 'checked' : ''}>
-                    </td>
-                    <td class="editable-cell" data-field="nama_produk">${item.nama_produk || ''}</td>
-                    <td class="editable-cell" data-field="kategori">${item.kategori || ''}</td>
-                    <td class="editable-cell" data-field="supplier">${item.supplier || ''}</td>
-                    <td class="editable-cell" data-field="stok">${stokBadge}</td>
-                    <td class="editable-cell" data-field="harga_beli">${formatCurrency(item.harga_beli)}</td>
-                    <td class="editable-cell" data-field="harga_jual">${formatCurrency(item.harga_jual)}</td>
-                    <td>${formatRelativeDate(item.updated_at || item.timestamps)}</td>
-                </tr>
-            `;
-        }).join('');
-
-        DOM.table.selectAll.checked = state.selectedProduk.length > 0 &&
-        state.selectedProduk.length === pagedData.length;
-        renderPagination(totalPages, pagination.page);
-    }
-
-    function renderPagination(totalPages, currentPage) {
-        const paginationEl = document.getElementById('produkPagination');
-        if (!paginationEl) return;
-        let html = '';
-
-        // Previous button
-        html += `<li class="page-item${currentPage === 1 ? ' disabled' : ''}">
-            <a class="page-link" href="#" data-page="${currentPage - 1}">&laquo;</a>
-        </li>`;
-
-        // Page numbers
-        for (let i = 1; i <= totalPages; i++) {
-            html += `<li class="page-item${i === currentPage ? ' active' : ''}">
-                <a class="page-link" href="#" data-page="${i}">${i}</a>
-            </li>`;
-        }
-
-        // Next button
-        html += `<li class="page-item${currentPage === totalPages ? ' disabled' : ''}">
-            <a class="page-link" href="#" data-page="${currentPage + 1}">&raquo;</a>
-        </li>`;
-
-        paginationEl.innerHTML = html;
-    }
-
-    function getFilteredData() {
-        const { supplier, kategori, unit } = DOM.filters;
-        return state.allProducts.filter(produk => {
-            const matchKategori = !kategori.value || produk.kategori === kategori.value;
-            const matchSupplier = !supplier.value || produk.supplier === supplier.value;
-            let matchSatuan = !unit.value
-                || produk.satuan === unit.value
-                || (state.konversiSatuan[produk.id] || []).some(
-                    k => k.satuan_besar === unit.value || k.satuan_dasar === unit.value
-                );
-            return matchKategori && matchSupplier && matchSatuan;
-        });
-    }
-
-    function applyFilters(resetPage = true) {
-        if (resetPage) pagination.page = 1;
-        const filteredData = getFilteredData();
-        renderTable(filteredData);
-        updateTotals(filteredData);
-    }
-
-    function populateFilters(data) {
-        Object.entries(DOM.filters).forEach(([key, element]) => {
-            const uniqueValues = [...new Set(data.map(p => p[key]))].filter(Boolean);
-            element.innerHTML = `
-                <option value="">Semua ${key.charAt(0).toUpperCase() + key.slice(1)}</option>
-                ${uniqueValues.map(value => `<option value="${value}">${value}</option>`).join('')}
-            `;
-        });
-    }
-
-    function populateSatuanFilter() {
-        const satuanMap = {};
-
-        state.allProducts.forEach(p => {
-            const satuan = (p.satuan || '').trim();
-            if (satuan) satuanMap[satuan.toLowerCase()] = satuan;
-        });
-
-        Object.values(state.konversiSatuan).forEach(arr => {
-            arr.forEach(k => {
-                const satuanDasar = (k.satuan_dasar || '').trim();
-                if (satuanDasar) satuanMap[satuanDasar.toLowerCase()] = satuanDasar;
-
-                const satuanBesar = (k.satuan_besar || '').trim();
-                if (satuanBesar) satuanMap[satuanBesar.toLowerCase()] = satuanBesar;
+        if (isEditMode) {
+            state.selectedProduk = Array.from(selectedCheckboxes).map(checkbox => {
+                return state.allProducts.find(p => p.id == checkbox.dataset.id);
             });
-        });
-
-        const allSatuan = Object.values(satuanMap);
-
-        DOM.filters.unit.innerHTML = `
-            <option value="">Semua Satuan</option>
-            ${allSatuan.map(s => `<option value="${s}">${s}</option>`).join('')}
-        `;
-    }
-
-    function handleSelectedRow(){
-        const checkboxes = DOM.table.body.querySelectorAll('.row-checkbox');
-        checkboxes.forEach(checkboxes => {
-            checkboxes.checked = DOM.table.selectAll.checked;
-        });
-
-        state.selectedProduk = DOM.table.selectAll.checked
-        ? Array.from(state.allProducts)
-        : [];
-    }
-
-    function handleRowCheckboxChange(checkbox){
-        const rowId = checkbox.dataset.id;
-        const produk = state.allProducts.find(p => p.id == rowId);
-
-        if(checkbox.checked){
-            if (!state.selectedProduk.some(p => p.id == rowId)) {
-                state.selectedProduk.push(produk);
-            }
+            populateFormWithProduct(state.selectedProduk[0]);
+            loadExistingBarcodes(state.selectedProduk[0].id);
+            loadExistingSatuan(state.selectedProduk[0].id);   // <-- Tambahkan ini
+            loadExistingDiskon(state.selectedProduk[0].id);   // <-- Tambahkan ini
         } else {
-            state.selectedProduk = state.selectedProduk.filter(p => p.id != rowId);
-        }
-
-        DOM.table.selectAll.checked = state.selectedProduk.length === state.allProducts.length;
-    }
-
-    // SIDEBAR RENDER
-    function renderAturProdukSidebar(menu = 'edit') {
-        document.querySelectorAll('#produkSidebarMenu .nav-link').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.menu === menu);
-        });
-
-        const content = document.getElementById('produkSidebarContent');
-        const saveBtn = document.getElementById('saveEditProdukBtn');
-
-        switch (menu) {
-            case 'edit': // Atur
-                renderEditSidebar(content);
-                saveBtn.style.display = '';
-                break;
-            case 'satuan':
-                renderSatuanSidebar(content);
-                saveBtn.style.display = '';
-                break;
-            case 'barcode':
-                renderBarcodeSidebar(content);
-                saveBtn.style.display = '';
-                break;
-            case 'diskon':
-                renderDiskonSidebar(content);
-                saveBtn.style.display = '';
-                break;
-            default:
-                break;
-        }
-    }
-
-    function renderEditSidebar(content) {
-        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-        if (checkboxes.length === 0) {
-            content.innerHTML = `<div class="alert alert-info">Pilih produk untuk mengatur satuan.</div>`;
-            return;
-        }
-        state.selectedProduk = Array.from(checkboxes).map(checkbox => {
-            return state.allProducts.find(p => p.id == checkbox.dataset.id);
-        });
-
-        content.innerHTML = `
-            <div class="mb-2">Produk terpilih: <span id="jumlahProdukTerpilih"></span></div>
-            <ul class="nav nav-tabs" id="produkTabsContainer"></ul>
-            <div class="tab-content" id="produkTabContent"></div>
-        `;
-        renderEditModalTabs();
-    }
-
-    function renderSatuanSidebar(content) {
-        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-        if (checkboxes.length === 0) {
-            content.innerHTML = `<div class="alert alert-info">Pilih produk untuk mengatur satuan.</div>`;
-            return;
-        }
-        state.selectedProduk = Array.from(checkboxes).map(checkbox => {
-            return state.allProducts.find(p => p.id == checkbox.dataset.id);
-        });
-
-        // Render container, lalu panggil fungsi tab
-        content.innerHTML = `
-            <div class="mb-2">Produk terpilih: <span id="jumlahProdukSatuanTerpilih"></span></div>
-            <ul class="nav nav-tabs" id="satuanTabsContainer"></ul>
-            <div class="tab-content" id="satuanTabContent"></div>
-        `;
-        renderSatuanModalTabs();
-    }
-
-    function renderBarcodeSidebar(content) {
-        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-        if (checkboxes.length === 0) {
-            content.innerHTML = `<div class="alert alert-info">Pilih produk untuk mengatur barcode.</div>`;
-            return;
-        }
-        state.selectedProduk = Array.from(checkboxes).map(checkbox => {
-            return state.allProducts.find(p => p.id == checkbox.dataset.id);
-        });
-
-        content.innerHTML = `
-            <div class="mb-2">Produk terpilih: <span id="jumlahProdukBarcodeTerpilih"></span></div>
-            <ul class="nav nav-tabs" id="barcodeTabsContainer"></ul>
-            <div class="tab-content" id="barcodeTabContent"></div>
-        `;
-        renderBarcodeModalTabs();
-    }
-
-    function renderDiskonSidebar(content) {
-        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-        if (checkboxes.length === 0) {
-            content.innerHTML = `<div class="alert alert-info">Pilih produk untuk mengatur diskon.</div>`;
-            return;
-        }
-        state.selectedProduk = Array.from(checkboxes).map(checkbox => {
-            return state.allProducts.find(p => p.id == checkbox.dataset.id);
-        });
-
-        content.innerHTML = `
-            <div class="mb-2">Produk terpilih: <span id="jumlahProdukTerpilih"></span></div>
-            <ul class="nav nav-tabs" id="produkDiskonTabs"></ul>
-            <div class="tab-content" id="produkDiskonTabContent"></div>
-        `;
-        renderDiskonModalTabs();
-    }
-
-    // PRODUK MANAGEMENT
-    function renderEditModalTabs() {
-        const tabsContainer = document.getElementById('produkTabsContainer');
-        const tabContentContainer = document.getElementById('produkTabContent');
-
-        // Update jumlah produk terpilih
-        document.getElementById('jumlahProdukTerpilih').textContent = state.selectedProduk.length;
-
-        tabsContainer.innerHTML = '';
-        tabContentContainer.innerHTML = '';
-
-        if (!state.selectedProduk || state.selectedProduk.length === 0) {
-            tabContentContainer.innerHTML = `<div class="alert alert-info">Pilih produk untuk diedit.</div>`;
-            document.getElementById('saveEditProdukBtn').style.display = 'none';
-            return;
-        }
-
-        state.selectedProduk.forEach((produk, index) => {
-            const isActive = index === 0;
-            const tabId = `edit-tab-${produk.id}`;
-            const contentId = `edit-content-${produk.id}`;
-
-            // Tab Item
-            const tabItem = document.createElement('li');
-            tabItem.className = 'nav-item';
-            tabItem.innerHTML = `
-                <button class="nav-link ${isActive ? 'active' : ''}"
-                        id="${tabId}"
-                        data-bs-toggle="tab"
-                        data-bs-target="#${contentId}"
-                        type="button">
-                    ${produk.nama_produk}
-                </button>
-            `;
-            tabsContainer.appendChild(tabItem);
-
-            // Tab Content
-            const tabContent = document.createElement('div');
-            tabContent.className = `tab-pane fade ${isActive ? 'show active' : ''}`;
-            tabContent.id = contentId;
-            tabContent.innerHTML = `
-                <form class="edit-produk-form" data-produk-id="${produk.id}">
-                    <input type="hidden" name="produk_id" value="${produk.id}">
-                    <div class="mb-3">
-                        <label class="form-label">Nama Produk</label>
-                        <input type="text" class="form-control" name="nama_produk" value="${produk.nama_produk || ''}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Kategori</label>
-                        <input type="text" class="form-control" name="kategori" value="${produk.kategori || ''}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Supplier</label>
-                        <input type="text" class="form-control" name="supplier" value="${produk.supplier || ''}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Stok</label>
-                        <input type="number" class="form-control" name="stok" value="${produk.stok || 0}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Satuan</label>
-                        <input type="text" class="form-control" name="satuan" value="${produk.satuan || ''}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Harga Beli</label>
-                        <input type="text" class="form-control" name="harga_beli" value="${parseInt(produk.harga_beli) || ''}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Harga Jual</label>
-                        <input type="text" class="form-control" name="harga_jual" value="${parseInt(produk.harga_jual) || ''}">
-                    </div>
-                    <button type="button" class="btn btn-primary btn-save-edit-tab" data-produk-id="${produk.id}">
-                        Simpan ${produk.nama_produk}
-                    </button>
-                </form>
-            `;
-            tabContentContainer.appendChild(tabContent);
-        });
-
-        document.getElementById('saveEditProdukBtn').style.display = '';
-    }
-
-    async function saveAddProduk(form) {
-        const formData = new FormData(form);
-        const namaProduk = formData.get('nama_produk');
-        try {
-            const response = await fetch('/api/produk', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': DOM.meta.csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(Object.fromEntries(formData)),
-                credentials: 'same-origin'
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'GAGAL MENAMBAHKAN PRODUK');
-            }
-
-            if (response.ok) {
-                console.log('Response produk:', data);
-                if (!data.data || !data.data.id) {
-                    showAlert('Gagal mendapatkan data produk baru dari server', 'danger');
-                    return;
-                }
-                await saveTracking({
-                    produk_id: data.data.id,
-                    nama_produk: data.data.nama_produk,
-                    aksi: 'tambah',
-                    keterangan: `Produk Baru dari Supplier ${data.data.supplier || 'Tidak Ada Supplier'}`
-                });
-            }
-
-            DOM.modals.baru.hide();
+            // Reset form untuk produk baru
+            const form = document.getElementById('formTambahProduk');
             form.reset();
-            showAlert(`PRODUK ${namaProduk} BERHASIL DITAMBAHKAN`, 'success');
-            loadData(state.currentSort.field, state.currentSort.direction);
-        } catch (error) {
-            showAlert(
-                `GAGAL MENAMBAHKAN PRODUK: ${error.message}`,
-                'danger',
-                5000
-            );
-        }
-    }
 
-    async function saveEditProduk() {
-        const forms = document.querySelectorAll('.edit-produk-form');
-        const results = [];
-        for (const form of forms) {
-            const formData = new FormData(form);
-            const produkId = formData.get('produk_id');
-            const data = Object.fromEntries(formData.entries());
-
-            ['harga_beli', 'harga_jual', 'stok'].forEach(field => {
-                if (data[field] !== undefined && data[field] !== null) {
-                    data[field] = parseInt(
-                        String(data[field]).replace(/[.,]/g, '')
-                    ) || 0;
-                }
+            // Reset semua input fields supaya tidak ada jejak
+            form.querySelectorAll('input').forEach(input => {
+                input.value = '';
+                input.removeAttribute('value');
             });
 
-            try {
-                const response = await fetch(`/api/produk/${produkId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': DOM.meta.csrfToken,
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(data),
-                    credentials: 'same-origin'
-                });
-                const result = await response.json();
-                results.push({
-                    success: response.ok,
-                    produk: data.nama_produk,
-                    message: result.message || (response.ok ? 'Berhasil disimpan' : 'Gagal menyimpan')
-                });
-                if (response.ok) {
-                    const produkLama = state.allProducts.find(p => p.id == produkId);
-                    let perubahan = [];
+            // Set default values
+            form.querySelector('[name="stok"]').value = '0';
+            form.querySelector('#newJumlahSatuan').value = '1';
 
-                    ['nama_produk', 'kategori', 'supplier', 'stok', 'satuan', 'harga_beli', 'harga_jual'].forEach(field => {
-                        const before = produkLama[field];
-                        const after = data[field];
-                        if ((field === 'stok' || field === 'harga_beli' || field === 'harga_jual')) {
-                            const beforeNum = parseInt(before) || 0;
-                            const afterNum = parseInt(after) || 0;
-                            if (beforeNum !== afterNum) {
-                                perubahan.push(`${field.replace('_', ' ')}: ${beforeNum} → ${afterNum}`);
-                            }
-                        } else {
-                            if ((before || '') !== (after || '')) {
-                                perubahan.push(`${field.replace('_', ' ')}: ${before || '-'} → ${after || '-'}`);
-                            }
-                        }
-                    });
+            state.selectedProduk = [];
+        }
 
-                    if (perubahan.length > 0) {
-                        const keterangan = `Edit data - ${perubahan.join(', ')}`;
-                        await saveTracking({
-                            produk_id: produkId,
-                            nama_produk: data.nama_produk,
-                            aksi: 'edit',
-                            keterangan
-                        });
-                    }
-                }
-            } catch (error) {
-                results.push({
-                    success: false,
-                    produk: data.nama_produk,
-                    message: 'Terjadi kesalahan jaringan'
-                });
+        DOM.modals.baru.show();
+
+        // Setup modal event listeners setiap kali modal dibuka
+        setTimeout(() => {
+            setupModalEventListeners();
+            renderBarcodeList();
+            renderKonversiSatuanList();
+            renderDiskonList();
+            setupTabNavigation();
+        }, 100);
+    }
+
+    function setupTabNavigation() {
+        // Show tab navigation
+        const tabNavigation = document.getElementById('tambahProdukTabs');
+        if (tabNavigation) {
+            tabNavigation.style.display = 'flex';
+        }
+
+        // Reset tab content ke default state
+        document.querySelectorAll('.tab-pane').forEach((pane, index) => {
+            pane.classList.remove('show', 'active');
+            if (index === 0) {
+                pane.classList.add('show', 'active');
             }
-        }
-        let message = `<div class="text-start"><ul>`;
-        results.forEach(r => {
-            message += `<li class="${r.success ? 'text-success' : 'text-danger'}"><strong>${r.produk}:</strong> ${r.message}</li>`;
         });
-        message += `</ul></div>`;
-        await Swal.fire({
-            title: 'Hasil Penyimpanan',
-            html: message,
-            icon: results.some(r => !r.success) ? 'warning' : 'success',
-            confirmButtonText: 'OK'
+
+        // Reset tab navigation ke default
+        document.querySelectorAll('#tambahProdukTabs .nav-link').forEach((link, index) => {
+            link.classList.remove('active');
+            if (index === 0) {
+                link.classList.add('active');
+            }
         });
-        if (results.every(r => r.success)) {
-            DOM.modals.edit.hide();
-            loadData(state.currentSort.field, state.currentSort.direction);
+
+        // Setup tab click handlers
+        document.querySelectorAll('#tambahProdukTabs .nav-link').forEach(tab => {
+            tab.removeEventListener('click', handleTabClick);
+            tab.addEventListener('click', handleTabClick);
+        });
+
+        // Update step counters
+        updateStepCounters();
+
+        // Update modal header
+        updateModalHeader();
+    }
+
+    function updateModalHeader() {
+        const modalTitle = document.querySelector('#baruProdukModal .modal-title');
+        const isEditMode = state.selectedProduk.length > 0;
+
+        if (isEditMode) {
+            if (state.selectedProduk.length === 1) {
+                const productName = state.selectedProduk[0].nama_produk || 'Produk Tanpa Nama';
+                modalTitle.innerHTML = `
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <i class="fas fa-edit"></i>
+                        <span>Edit Produk:</span>
+                        <span class="text-warning fw-bold">${productName}</span>
+                    </div>
+                `;
+            } else {
+                const options = state.selectedProduk.map((p) =>
+                    `<option value="${p.id}">${p.nama_produk || 'Produk Tanpa Nama'}</option>`
+                ).join('');
+                modalTitle.innerHTML = `
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <i class="fas fa-edit"></i>
+                        <span class="text-warning fw-bold">${state.selectedProduk.length} Produk Dipilih</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <select id="selectEditProduk" class="form-select form-select border-primary" style="min-width:180px;">
+                                ${options}
+                            </select>
+                        </div>
+                    </div>
+                `;
+                setTimeout(() => {
+                    const select = document.getElementById('selectEditProduk');
+                    if (select) {
+                        let lastSelectedId = parseInt(select.value);
+
+                        select.addEventListener('change', function() {
+                            // Simpan draft produk sebelumnya
+                            saveCurrentProductDraft(lastSelectedId);
+
+                            // Load produk baru
+                            const selectedId = parseInt(this.value);
+                            lastSelectedId = selectedId;
+                            const produk = state.selectedProduk.find(p => p.id === selectedId);
+                            if (produk) {
+                                loadProductDraftToForm(selectedId, produk);
+                                loadExistingBarcodes(produk.id);
+                                loadExistingSatuan(produk.id);
+                                loadExistingDiskon(produk.id);
+                            }
+                        });
+
+                        // Saat pertama kali select muncul, load draft jika ada
+                        const firstId = parseInt(select.value);
+                        lastSelectedId = firstId;
+                        const produk = state.selectedProduk.find(p => p.id === firstId);
+                        if (produk) {
+                            loadProductDraftToForm(firstId, produk);
+                            loadExistingBarcodes(produk.id);
+                            loadExistingSatuan(produk.id);
+                            loadExistingDiskon(produk.id);
+                        }
+                    }
+                }, 100);
+            }
+        } else {
+            modalTitle.innerHTML = `
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Tambah Produk Baru</span>
+                </div>
+            `;
         }
     }
 
-    async function deleteSelected() {
-        if (state.selectedProduk.length === 0) {
-            await Swal.fire({
-                icon: 'warning',
-                title: 'Tidak ada produk dipilih',
-                text: 'Silakan pilih produk yang akan dihapus',
-                confirmButtonText: 'Mengerti'
-            });
+    function saveCurrentProductDraft(produkId) {
+        const form = document.getElementById('formTambahProduk');
+        if (!produkId || !form) return;
+
+        // Ambil data dari form
+        const draft = {
+            nama_produk: form.querySelector('[name="nama_produk"]').value,
+            kategori: form.querySelector('[name="kategori"]').value,
+            supplier: form.querySelector('[name="supplier"]').value,
+            satuan: form.querySelector('[name="satuan"]').value,
+            stok: form.querySelector('[name="stok"]').value,
+            harga_beli: form.querySelector('[name="harga_beli"]').value,
+            harga_jual: form.querySelector('[name="harga_jual"]').value,
+            barcodes: JSON.parse(JSON.stringify(state.newProduct.barcodes || [])),
+            konversiSatuan: JSON.parse(JSON.stringify(state.newProduct.konversiSatuan || [])),
+            diskon: JSON.parse(JSON.stringify(state.newProduct.diskon || []))
+        };
+        state.productDrafts[produkId] = draft;
+    }
+
+    function loadProductDraftToForm(produkId, produk) {
+        const draft = state.productDrafts[produkId];
+        if (draft) {
+            // Isi form dari draft
+            const form = document.getElementById('formTambahProduk');
+            form.querySelector('[name="nama_produk"]').value = draft.nama_produk || '';
+            form.querySelector('[name="kategori"]').value = draft.kategori || '';
+            form.querySelector('[name="supplier"]').value = draft.supplier || '';
+            form.querySelector('[name="satuan"]').value = draft.satuan || '';
+            form.querySelector('[name="stok"]').value = draft.stok || 0;
+            form.querySelector('[name="harga_beli"]').value = draft.harga_beli || '';
+            form.querySelector('[name="harga_jual"]').value = draft.harga_jual || '';
+            state.newProduct.barcodes = JSON.parse(JSON.stringify(draft.barcodes || []));
+            state.newProduct.konversiSatuan = JSON.parse(JSON.stringify(draft.konversiSatuan || []));
+            state.newProduct.diskon = JSON.parse(JSON.stringify(draft.diskon || []));
+            renderBarcodeList();
+            renderKonversiSatuanList();
+            renderDiskonList();
+        } else {
+            // Jika belum ada draft, isi dari produk asli
+            populateFormWithProduct(produk);
+            loadExistingBarcodes(produk.id);
+            loadExistingSatuan(produk.id);
+            loadExistingDiskon(produk.id);
+        }
+    }
+
+    function handleTabClick(e) {
+        e.preventDefault();
+        const clickedTab = e.currentTarget;
+        const targetId = clickedTab.getAttribute('data-bs-target');
+
+        // Update active tab
+        document.querySelectorAll('#tambahProdukTabs .nav-link').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        clickedTab.classList.add('active');
+
+        // Update active tab content
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('show', 'active');
+        });
+
+        const targetPane = document.querySelector(targetId);
+        if (targetPane) {
+            targetPane.classList.add('show', 'active');
+        }
+
+    }
+
+    function updateStepCounters() {
+        // Update barcode count
+        const barcodeTab = document.querySelector('#step3-tab .badge');
+        if (barcodeTab) {
+            const count = state.newProduct.barcodes ? state.newProduct.barcodes.length : 0;
+            barcodeTab.textContent = count;
+            barcodeTab.style.display = count > 0 ? 'inline' : 'none';
+        }
+
+        // Update satuan count
+        const satuanTab = document.querySelector('#step2-tab .badge');
+        if (satuanTab) {
+            const validSatuan = (state.newProduct.konversiSatuan || []).filter(k =>
+                typeof k.jumlah_satuan === 'number' && k.jumlah_satuan > 0 &&
+                typeof k.konversi_satuan === 'number' && k.konversi_satuan > 0 &&
+                k.satuan_besar && String(k.satuan_besar).trim() !== ''
+            );
+            satuanTab.textContent = validSatuan.length;
+            satuanTab.style.display = validSatuan.length > 0 ? 'inline' : 'none';
+        }
+
+        // Update diskon count
+        const diskonTab = document.querySelector('#step4-tab .badge');
+        if (diskonTab) {
+            const count = state.newProduct.diskon ? state.newProduct.diskon.length : 0;
+            diskonTab.textContent = count;
+            diskonTab.style.display = count > 0 ? 'inline' : 'none';
+        }
+    }
+
+    function populateFormWithProduct(product) {
+        const form = document.getElementById('formTambahProduk');
+        form.querySelector('[name="nama_produk"]').value = product.nama_produk || '';
+        form.querySelector('[name="kategori"]').value = product.kategori || '';
+        form.querySelector('[name="supplier"]').value = product.supplier || '';
+        form.querySelector('[name="satuan"]').value = product.satuan || '';
+        form.querySelector('[name="stok"]').value = product.stok || 0;
+
+        // Format harga tanpa desimal/koma, hanya ribuan
+        const hargaBeliInput = form.querySelector('[name="harga_beli"]');
+        const hargaJualInput = form.querySelector('[name="harga_jual"]');
+
+        if (hargaBeliInput) {
+            hargaBeliInput.value = (parseInt(product.harga_beli, 10) || 0).toLocaleString('id-ID');
+        }
+        if (hargaJualInput) {
+            hargaJualInput.value = (parseInt(product.harga_jual, 10) || 0).toLocaleString('id-ID');
+        }
+
+        setTimeout(() => {
+            calculateMargin();
+            handleSatuanInput({ target: form.querySelector('[name="satuan"]') });
+        }, 100);
+    }
+
+    // RESTORED: Load existing barcodes
+    async function loadExistingBarcodes(produkId) {
+        try {
+            const response = await fetch(`/api/produk/${produkId}/barcode`);
+            if (response.ok) {
+                const barcodeData = await response.json();
+                state.newProduct.barcodes = barcodeData.map(b => ({
+                    id: b.id,
+                    kode_barcode: b.kode_barcode,
+                    is_utama: b.is_utama,
+                    isExisting: true
+                }));
+                state.oldBarcodes = JSON.parse(JSON.stringify(state.newProduct.barcodes));
+                renderBarcodeList();
+            }
+        } catch (error) {
+            console.error('Error loading barcodes:', error);
+        }
+    }
+
+    // BARCODE MANAGEMENT - SIMPLIFIED
+    function tambahBarcode() {
+        const input = document.getElementById('newBarcodeInput');
+        const kode = input.value.trim();
+
+        if (!kode) {
+            showAlert('Masukkan kode barcode', 'warning');
             return;
         }
 
-        const productNames = state.selectedProduk
-            .slice(0, 5)
-            .map(p => `[${p.nama_produk}]`)
-            .join('\n');
+        if (state.newProduct.barcodes.find(b => b.kode_barcode === kode)) {
+            showAlert('Barcode sudah ada', 'warning');
+            return;
+        }
 
-        const otherProducts = state.selectedProduk.length > 5
-            ? `\n dan ${state.selectedProduk.length - 5} produk lainnya...`
-            : '';
-
-        const { isConfirmed } = await Swal.fire({
-            title: 'Hapus Produk?',
-            text: `${productNames}\n${otherProducts}?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Ya, Hapus',
-            cancelButtonText: 'Batal'
+        const isUtama = state.newProduct.barcodes.length === 0;
+        state.newProduct.barcodes.push({
+            id: Date.now(),
+            kode_barcode: kode,
+            is_utama: isUtama
         });
 
-        if (!isConfirmed) return;
+        input.value = '';
+        renderBarcodeList();
+        showAlert('Barcode ditambahkan', 'success');
+        saveTracking({
+            aksi: 'tambah_barcode',
+            keterangan: `Tambah barcode: ${kode}${isUtama ? ' (utama)' : ''}`,
+            produk_id: state.selectedProduk[0]?.id,
+            nama_produk: state.selectedProduk[0]?.nama_produk
+        });
+    }
 
-        try {
-            for (const produk of state.selectedProduk) {
-                const stok = parseInt(produk.stok) || 0;
-                const keterangan = stok === 0
-                    ? 'Tida Ada Stok'
-                    : `Stok Tersisa: ${stok}`;
-                await saveTracking({
-                    produk_id: produk.id,
-                    nama_produk: produk.nama_produk,
-                    aksi: 'hapus',
-                    keterangan
+    async function hapusBarcode(id) {
+        const barcodeDihapus = state.newProduct.barcodes.find(b => b.id === id);
+
+        // Jika data sudah ada di database, hapus di backend
+        if (barcodeDihapus && barcodeDihapus.isExisting) {
+            try {
+                await fetch(`/api/produk/barcode/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken }
                 });
+            } catch (e) {
+                showAlert('Gagal menghapus barcode di server', 'danger');
+                return;
             }
+        }
 
-            const response = await fetch('/api/produk/delete-multiple', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': DOM.meta.csrfToken
-                },
-                body: JSON.stringify({
-                    ids: state.selectedProduk.map(p => p.id)
-                }),
-                credentials: 'same-origin'
-            });
+        state.newProduct.barcodes = state.newProduct.barcodes.filter(b => b.id !== id);
+        renderBarcodeList();
+        showAlert('Barcode dihapus', 'success');
 
-            if (!response.ok) {
-                throw new Error('Gagal menghapus produk');
-            }
-
-            await Swal.fire({
-                icon: 'success',
-                title: 'Terhapus!',
-                text: `${state.selectedProduk.length} produk berhasil dihapus`,
-                timer: 2000,
-                showConfirmButton: false
-            });
-
-            // Refresh data dan reset selection
-            loadData(state.currentSort.field, state.currentSort.direction);
-            state.selectedProduk = [];
-            DOM.table.selectAll.checked = false;
-        } catch (error) {
-            await Swal.fire({
-                icon: 'error',
-                title: 'Gagal',
-                text: error.message || 'Terjadi kesalahan saat menghapus',
-                confirmButtonText: 'Mengerti'
+        if (barcodeDihapus) {
+            saveTracking({
+                aksi: 'hapus_barcode',
+                keterangan: `Hapus barcode: ${barcodeDihapus.kode_barcode}${barcodeDihapus.is_utama ? ' (utama)' : ''}`,
+                produk_id: state.selectedProduk[0]?.id,
+                nama_produk: state.selectedProduk[0]?.nama_produk
             });
         }
     }
 
-    function searchProduk(keyword) {
-        keyword = (keyword || '').toLowerCase().trim();
-        let filtered;
-        if (!keyword) {
-            filtered = getFilteredData();
+    function renderBarcodeList() {
+        const container = document.getElementById('barcodeListContainer');
+        if (!container) return;
+
+        if (state.newProduct.barcodes.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">Belum ada barcode</div>';
         } else {
-            filtered = state.allProducts.filter(produk =>
-                (produk.nama_produk || '').toLowerCase().includes(keyword) ||
-                (produk.kategori || '').toLowerCase().includes(keyword) ||
-                (produk.supplier || '').toLowerCase().includes(keyword)
-            );
+            container.innerHTML = state.newProduct.barcodes.map(b => `
+                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                    <div>
+                        <strong>${b.kode_barcode}</strong>
+                        ${b.is_utama ? '<span class="badge bg-success ms-2">Utama</span>' : ''}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusBarcode(${b.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
         }
-        renderTable(filtered);
-        updateTotals(filtered);
+
+        updateBarcodeCounter();
+        updateStepCounters(); // Update tab badges
+    }
+
+    function updateStepCounts() {
+        // Update barcode count badge
+        const barcodeCountBadge = document.querySelector('#step2-tab .badge');
+        if (barcodeCountBadge) {
+            barcodeCountBadge.textContent = state.newProduct.barcodes.length;
+        }
+
+        // Update other step counts if needed
+        const stepCounts = {
+            1: 'Data Dasar',
+            2: state.newProduct.barcodes.length,
+            3: 'Review'
+        };
+
+        Object.keys(stepCounts).forEach(step => {
+            const badge = document.querySelector(`#step${step}-tab .badge`);
+            if (badge && typeof stepCounts[step] === 'number') {
+                badge.textContent = stepCounts[step];
+                badge.style.display = stepCounts[step] > 0 ? 'inline' : 'none';
+            }
+        });
     }
 
     // SATUAN
-    function renderSatuanModalTabs() {
-        const tabsContainer = document.getElementById('satuanTabsContainer');
-        const tabContentContainer = document.getElementById('satuanTabContent');
-
-        document.getElementById('jumlahProdukSatuanTerpilih').textContent = state.selectedProduk.length;
-
-        tabsContainer.innerHTML = '';
-        tabContentContainer.innerHTML = '';
-
-        state.selectedProduk.forEach((produk, index) => {
-            const isActive = index === 0;
-            const tabId = `satuan-tab-${produk.id}`;
-            const contentId = `satuan-content-${produk.id}`;
-
-            const satuanSet = new Map();
-
-            if (produk.satuan) satuanSet.set(produk.satuan.trim().toLowerCase(), produk.satuan.trim());
-
-            (state.konversiSatuan[produk.id] || []).forEach(k => {
-                if (k.satuan_dasar) satuanSet.set(k.satuan_dasar.trim().toLowerCase(), k.satuan_dasar.trim());
-                if (k.satuan_besar) satuanSet.set(k.satuan_besar.trim().toLowerCase(), k.satuan_besar.trim());
-            });
-
-            const satuanOptions = Array.from(satuanSet.values());
-
-            // Tab Item
-            const tabItem = document.createElement('li');
-            tabItem.className = 'nav-item';
-            tabItem.innerHTML = `
-                <button class="nav-link ${isActive ? 'active' : ''}"
-                        id="${tabId}"
-                        data-bs-toggle="tab"
-                        data-bs-target="#${contentId}"
-                        type="button">
-                    ${produk.nama_produk}
-                </button>
-            `;
-            tabsContainer.appendChild(tabItem);
-
-            // Tab Content
-            const tabContent = document.createElement('div');
-            tabContent.className = `tab-pane fade ${isActive ? 'show active' : ''}`;
-            tabContent.id = contentId;
-            tabContent.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <form class="satuan-form" data-produk-id="${produk.id}">
-                            <input type="hidden" name="produk_id" value="${produk.id}">
-                            <div class="mb-3">
-                                <label class="form-label">Satuan Dasar</label>
-                                <input type="text" class="form-control" name="satuan_dasar" required
-                                    value="${produk.satuan || ''}" placeholder="Masukkan satuan dasar">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Satuan Besar</label>
-                                <input type="text" class="form-control" name="satuan_besar" required
-                                    placeholder="lusin/kg/dus">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Jumlah Satuan Dasar</label>
-                                <input type="number" class="form-control" name="jumlah"
-                                    value="1" min="0.01" step="0.01">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Nilai Konversi</label>
-                                <input type="number" class="form-control" name="konversi" required
-                                    min="0.01" step="0.01" placeholder="12 (1 lusin = 12 pcs)">
-                            </div>
-                            <button type="button" class="btn btn-primary btn-save-satuan"
-                                    data-produk-id="${produk.id}">
-                                Simpan Konversi Satuan
-                            </button>
-                        </form>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="mb-0">DAFTAR KONVERSI</h6>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Konversi</th>
-                                        <th>Satuan Besar</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="satuan-list-body" data-produk-id="${produk.id}">
-                                    <tr>
-                                        <td colspan="3" class="text-center">
-                                            <div class="spinner-border spinner-border-sm"></div>
-                                            Memuat data konversi...
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-            tabContentContainer.appendChild(tabContent);
-
-            loadKonversiSatuan(produk.id);
-        });
-    }
-
-    async function loadKonversiSatuan(produkId) {
-        const satuanListBody = document.querySelector(`.satuan-list-body[data-produk-id="${produkId}"]`);
-
+    async function loadExistingSatuan(produkId) {
         try {
-            const response = await fetch(`/api/produk/${produkId}/satuan`, {
-                credentials: 'same-origin'
-            });
-            const satuanList = await response.json();
-
-            // Update state
-            state.konversiSatuan[produkId] = satuanList;
-
-            if (!satuanList || satuanList.length === 0) {
-                satuanListBody.innerHTML = `
-                    <tr>
-                        <td colspan="3" class="text-center text-muted">
-                            Tidak ada konversi satuan yang tersedia
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            satuanListBody.innerHTML = satuanList.map(satuan => `
-                <tr data-id="${satuan.id}">
-                    <td>${satuan.konversi} ${satuan.satuan_dasar}</td>
-                    <td>= ${satuan.jumlah} ${satuan.satuan_besar}</td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-danger btn-hapus-satuan"
-                                    data-satuan-id="${satuan.id}"
-                                    data-produk-id="${produkId}">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            console.error("Gagal memuat konversi satuan:", error);
-            satuanListBody.innerHTML = `
-                <tr>
-                    <td colspan="3" class="text-center text-danger">
-                        Gagal memuat data konversi<br>
-                        <small>${error.message}</small>
-                    </td>
-                </tr>
-            `;
-        }
-    }
-
-    async function saveSatuan(form, produkId) {
-        const inputs = form.querySelectorAll('[required]');
-        let isValid = true;
-
-        inputs.forEach(input => {
-            if (!input.value.trim()) {
-                input.classList.add('is-invalid');
-                isValid = false;
-            }
-        });
-
-        if (!isValid) {
-            showAlert('Harap isi semua field yang wajib diisi', 'warning');
-            return;
-        }
-        const formData = new FormData(form);
-        const produk = state.selectedProduk.find(p => p.id == produkId);
-
-        const loadingSwal = Swal.fire({
-            title: 'MENYIMPAN KONVERSI',
-            html: 'SEDANG MEMPROSES KONVERSI SATUAN...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        try {
-            const satuanData = {
-                produk_id: produkId,
-                satuan_dasar: formData.get('satuan_dasar'),
-                satuan_besar: formData.get('satuan_besar'),
-                jumlah: formData.get('jumlah'),
-                konversi: formData.get('konversi')
-            };
-
-            const response = await fetch('/api/produk/satuan', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': DOM.meta.csrfToken
-                },
-                body: JSON.stringify(satuanData),
-                credentials: 'same-origin'
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.message || 'Gagal menyimpan konversi satuan');
-            }
-
+            const response = await fetch(`/api/produk/${produkId}/satuan`);
             if (response.ok) {
-                const produk = state.allProducts.find(p => p.id == produkId);
-                await saveTracking({
-                    produk_id: produk.id,
-                    nama_produk: produk.nama_produk,
-                    aksi: 'satuan',
-                    keterangan: `${formData.get('jumlah')} ${formData.get('satuan_besar')} → ${formData.get('konversi')} ${formData.get('satuan_dasar')}`
-                });
+                const satuanData = await response.json();
+                state.newProduct.konversiSatuan = (satuanData || []).map(s => ({
+                    id: s.id,
+                    satuan_besar: s.satuan_besar || '',
+                    jumlah_satuan: Number(s.jumlah) || 0,
+                    konversi_satuan: Number(s.konversi) || 0,
+                    isExisting: true
+                }));
+                state.oldSatuan = JSON.parse(JSON.stringify(state.newProduct.konversiSatuan));
+                renderKonversiSatuanList();
             }
-
-            await loadKonversiSatuan(produkId);
-            populateSatuanFilter();
-
-            await loadingSwal.close();
-
-            await Swal.fire({
-                title: 'Berhasil!',
-                text: 'Konversi satuan berhasil disimpan',
-                icon: 'success',
-                confirmButtonText: 'OK'
-            });
-
-            form.querySelector('[name="satuan_besar"]').value = '';
-            form.querySelector('[name="jumlah"]').value = '1';
-            form.querySelector('[name="konversi"]').value = '';
-
         } catch (error) {
-            await loadingSwal.close();
-            console.error('Error:', error);
-            await Swal.fire({
-                title: 'Error',
-                text: error.message || 'Terjadi kesalahan saat menyimpan konversi satuan',
-                icon: 'error',
-                confirmButtonText: 'OK'
-            });
+            console.error('Error loading satuan:', error);
         }
     }
 
-    async function hapusSatuan(satuanId, produkId, button) {
-        const { isConfirmed } = await Swal.fire({
-            title: 'Hapus Konversi Satuan?',
-            text: 'Konversi satuan akan dihapus permanen!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Ya, Hapus!'
-        });
+    function tambahKonversiSatuan() {
+        const satuanBesar = document.getElementById('newSatuanBesar').value.trim();
+        const jumlahSatuan = parseFloat(document.getElementById('newJumlahSatuan').value);
+        const konversiSatuan = parseFloat(document.getElementById('newKonversiSatuan').value);
 
-        if (!isConfirmed) return;
-
-        const originalHtml = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        button.disabled = true;
-
-        try {
-            const response = await fetch(`/api/produk/satuan/${satuanId}`, {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken },
-                credentials: 'same-origin'
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Gagal menghapus konversi satuan');
-            }
-
-            await loadKonversiSatuan(produkId);
-            populateSatuanFilter();
-            showAlert('Konversi satuan berhasil dihapus!', 'success');
-        } catch (error) {
-            console.error('Error:', error);
-            showAlert(`Gagal menghapus konversi satuan: ${error.message}`, 'danger');
-        } finally {
-            button.innerHTML = originalHtml;
-            button.disabled = false;
+        if (!satuanBesar) {
+            showAlert('Masukkan satuan besar', 'warning');
+            return;
         }
-    }
-
-    // BARCODE
-    function renderBarcodeModalTabs() {
-        const tabsContainer = document.getElementById('barcodeTabsContainer');
-        const tabContentContainer = document.getElementById('barcodeTabContent');
-
-        document.getElementById('jumlahProdukBarcodeTerpilih').textContent = state.selectedProduk.length;
-
-        tabsContainer.innerHTML = '';
-        tabContentContainer.innerHTML = '';
-
-        state.selectedProduk.forEach((produk, index) => {
-            const isActive = index === 0;
-            const tabId = `barcode-tab-${produk.id}`;
-            const contentId = `barcode-content-${produk.id}`;
-
-            // Tab Item
-            const tabItem = document.createElement('li');
-            tabItem.className = 'nav-item';
-            tabItem.innerHTML = `
-                <button class="nav-link ${isActive ? 'active' : ''}"
-                        id="${tabId}"
-                        data-bs-toggle="tab"
-                        data-bs-target="#${contentId}"
-                        type="button">
-                    ${produk.nama_produk}
-                </button>
-            `;
-            tabsContainer.appendChild(tabItem);
-
-            // Tab Content
-            const tabContent = document.createElement('div');
-            tabContent.className = `tab-pane fade ${isActive ? 'show active' : ''}`;
-            tabContent.id = contentId;
-            tabContent.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <form class="barcode-form" data-produk-id="${produk.id}">
-                            <input type="hidden" name="produk_id" value="${produk.id}">
-                            <div class="mb-3">
-                                <label class="form-label">Kode Barcode</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control" name="kode_barcode" required
-                                        placeholder="Masukkan kode barcode">
-                                    <button class="btn btn-outline-secondary btn-generate-barcode" type="button"
-                                            data-produk-id="${produk.id}">
-                                        <i class="fas fa-barcode"></i> Generate Barcode
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="mb-3 form-check">
-                                <input type="checkbox" class="form-check-input" name="is_utama" id="is_utama_${produk.id}">
-                                <label class="form-check-label" for="is_utama_${produk.id}">Jadikan barcode utama</label>
-                            </div>
-                            <div class="mb-3">
-                                <div id="barcode-preview-${produk.id}" class="barcode-preview-container"></div>
-                            </div>
-                            <button type="button" class="btn btn-primary btn-save-barcode" data-produk-id="${produk.id}">
-                                Simpan Barcode
-                            </button>
-                        </form>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="mb-0">DAFTAR BARCODE</h6>
-                            <button class="btn btn-sm btn-outline-secondary btn-cetak-semua-barcode"
-                                    data-produk-id="${produk.id}">
-                                <i class="fas fa-print"></i> Cetak Semua
-                            </button>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Kode</th>
-                                        <th>Status</th>
-                                        <th>Preview</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="barcode-list-body" data-produk-id="${produk.id}">
-                                    <tr>
-                                        <td colspan="4" class="text-center">
-                                            <div class="spinner-border spinner-border-sm"></div>
-                                            Memuat data barcode...
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-            tabContentContainer.appendChild(tabContent);
-
-            loadBarcodeProduk(produk.id);
-        });
-    }
-
-    async function loadBarcodeProduk(produkId) {
-        try {
-            const response = await fetch(`/api/produk/${produkId}/barcode`, {
-                credentials: 'same-origin'
-            });
-            const barcodeList = await response.json();
-
-            state.barcodes[produkId] = barcodeList;
-
-            const barcodeListBody = document.querySelector(`.barcode-list-body[data-produk-id="${produkId}"]`);
-
-            if (!barcodeList || barcodeList.length === 0) {
-                barcodeListBody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">
-                            Tidak ada barcode yang tersedia
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            barcodeListBody.innerHTML = barcodeList.map(barcode => `
-                <tr data-id="${barcode.id}">
-                    <td>${barcode.kode_barcode}</td>
-                    <td>
-                        <span class="badge ${barcode.is_utama ? 'bg-success' : 'bg-secondary'}">
-                            ${barcode.is_utama ? 'Utama' : 'Tambahan'}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="barcode-small-preview" id="barcode-small-${barcode.id}"></div>
-                    </td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-primary btn-cetak-barcode"
-                                    data-barcode="${barcode.kode_barcode}">
-                                <i class="fas fa-print"></i>
-                            </button>
-                            <button class="btn btn-outline-success btn-set-utama-barcode"
-                                    data-barcode-id="${barcode.id}"
-                                    data-produk-id="${produkId}"
-                                    ${barcode.is_utama ? 'disabled' : ''}>
-                                <i class="fas fa-star"></i>
-                            </button>
-                            <button class="btn btn-outline-danger btn-hapus-barcode"
-                                    data-barcode-id="${barcode.id}"
-                                    data-produk-id="${produkId}">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-
-            // Render all barcode previews
-            barcodeList.forEach(barcode => {
-                renderBarcodePreview(
-                    `barcode-small-${barcode.id}`,
-                    barcode.kode_barcode,
-                    {
-                        height: 40,
-                        displayValue: false,
-                        format: detectBarcodeFormat(barcode.kode_barcode)
-                    }
-                );
-            });
-        } catch (error) {
-            console.error("Gagal memuat barcode:", error);
-            const barcodeListBody = document.querySelector(`.barcode-list-body[data-produk-id="${produkId}"]`);
-            barcodeListBody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center text-danger">
-                        Gagal memuat data barcode<br>
-                        <small>${error.message}</small>
-                    </td>
-                </tr>
-            `;
+        if (!jumlahSatuan || jumlahSatuan <= 0) {
+            showAlert('Masukkan jumlah satuan yang valid', 'warning');
+            return;
         }
-    }
-
-    function detectBarcodeFormat(barcode) {
-        // Auto-detect barcode format based on the input
-        if (/^\d{12,13}$/.test(barcode)) return "EAN13"; // UPC/EAN
-        if (/^[A-Za-z0-9]+$/.test(barcode)) return "CODE128"; // Alphanumeric
-        return "CODE128"; // Default
-    }
-
-    function renderBarcodePreview(containerId, barcode, options = {}) {
-        if (!barcode || barcode.trim() === '') {
-            document.getElementById(containerId).innerHTML = `
-                <div class="text-danger small">Kode barcode kosong</div>
-            `;
+        if (!konversiSatuan || konversiSatuan <= 0) {
+            showAlert('Masukkan nilai konversi yang valid', 'warning');
+            return;
+        }
+        if (!state.newProduct.konversiSatuan) {
+            state.newProduct.konversiSatuan = [];
+        }
+        if (state.newProduct.konversiSatuan.find(k => k.satuan_besar === satuanBesar)) {
+            showAlert('Satuan sudah ada', 'warning');
             return;
         }
 
-        const defaultOptions = {
-            format: detectBarcodeFormat(barcode),
-            lineColor: "#000",
-            width: 2,
-            height: 100,
-            displayValue: true,
-            fontSize: 16,
-            margin: 10
-        };
+        state.newProduct.konversiSatuan.push({
+            id: Date.now(),
+            satuan_besar: satuanBesar,
+            jumlah_satuan: jumlahSatuan,
+            konversi_satuan: konversiSatuan,
+            isExisting: false // <-- Penting!
+        });
 
-        const mergedOptions = { ...defaultOptions, ...options };
+        document.getElementById('newSatuanBesar').value = '';
+        document.getElementById('newJumlahSatuan').value = '1';
+        document.getElementById('newKonversiSatuan').value = '';
 
-        try {
-            // Clear previous content
-            document.getElementById(containerId).innerHTML = '';
+        renderKonversiSatuanList();
+        showAlert('Konversi satuan ditambahkan', 'success');
+    }
 
-            // Create new canvas/svg element
-            const element = document.createElement(mergedOptions.format === "EAN13" ? "canvas" : "svg");
-            element.id = `${containerId}-element`;
-            document.getElementById(containerId).appendChild(element);
+    async function hapusKonversiSatuan(id) {
+        if (!state.newProduct.konversiSatuan) return;
 
-            // Generate barcode
-            JsBarcode(`#${containerId}-element`, barcode, mergedOptions);
-        } catch (error) {
-            console.error("Error generating barcode:", error);
-            document.getElementById(containerId).innerHTML = `
-                <div class="text-danger small">Gagal render barcode: ${error.message}</div>
-            `;
+        const satuanDihapus = state.newProduct.konversiSatuan.find(k => k.id === id);
+
+        // Jika data sudah ada di database, hapus di backend
+        if (satuanDihapus && satuanDihapus.isExisting) {
+            try {
+                await fetch(`/api/produk/satuan/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken }
+                });
+            } catch (e) {
+                showAlert('Gagal menghapus satuan di server', 'danger');
+                return;
+            }
+        }
+
+        state.newProduct.konversiSatuan = state.newProduct.konversiSatuan.filter(k => k.id !== id);
+        renderKonversiSatuanList();
+        showAlert('Konversi satuan dihapus', 'success');
+
+        if (satuanDihapus) {
+            saveTracking({
+                aksi: 'hapus_satuan',
+                keterangan: `Hapus satuan: ${satuanDihapus.jumlah_satuan} ${satuanDihapus.satuan_besar} = ${satuanDihapus.konversi_satuan} ${(document.querySelector('[name="satuan"]').value || 'pcs')}`,
+                produk_id: state.selectedProduk[0]?.id,
+                nama_produk: state.selectedProduk[0]?.nama_produk
+            });
         }
     }
 
-    async function saveBarcode(form, produkId) {
-        const barcodeForms = document.querySelectorAll('.barcode-form');
-        const results = [];
-        const loadingSwal = Swal.fire({
-            title: 'MENYIMPAN BARCODE',
-            html: 'SEDANG MEMPROSES BARCODE...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
+    function renderKonversiSatuanList() {
+        const container = document.getElementById('konversiSatuanList');
+        if (!container) return;
+
+        // Filter hanya data yang valid
+        const dataValid = (state.newProduct.konversiSatuan || []).filter(k =>
+            typeof k.jumlah_satuan === 'number' && k.jumlah_satuan > 0 &&
+            typeof k.konversi_satuan === 'number' && k.konversi_satuan > 0 &&
+            k.satuan_besar && String(k.satuan_besar).trim() !== ''
+        );
+
+        if (dataValid.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state text-center py-4">
+                    <i class="fas fa-balance-scale fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">Belum ada konversi satuan</p>
+                </div>
+            `;
+        } else {
+            container.innerHTML = dataValid.map(k => `
+                <div class="d-flex justify-content-between align-items-center mb-2 p-3 border rounded bg-light">
+                    <div>
+                        <strong>${k.jumlah_satuan} ${k.satuan_besar}</strong> =
+                        <span class="text-primary">${k.konversi_satuan} ${(document.querySelector('[name="satuan"]').value || 'pcs')}</span>
+                    </div>
+                    <button type="button"  class="btn btn-sm btn-outline-danger" onclick="hapusKonversiSatuan(${k.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        updateSatuanCounter();
+        updateStepCounters();
+    }
+
+    function updateSatuanCounter() {
+        const counter = document.getElementById('satuanCount');
+        if (counter) {
+            // Hanya hitung satuan yang valid
+            const validSatuan = (state.newProduct.konversiSatuan || []).filter(k =>
+                typeof k.jumlah_satuan === 'number' && k.jumlah_satuan > 0 &&
+                typeof k.konversi_satuan === 'number' && k.konversi_satuan > 0 &&
+                k.satuan_besar && String(k.satuan_besar).trim() !== ''
+            );
+            counter.textContent = validSatuan.length;
+        }
+    }
+
+    // DISKON
+    async function loadExistingDiskon(produkId) {
+        try {
+            const response = await fetch(`/api/produk/${produkId}/diskon`);
+            if (response.ok) {
+                const diskonData = await response.json();
+                state.newProduct.diskon = diskonData.map(d => ({
+                    id: d.id,
+                    jumlah_minimum: Number(d.jumlah_minimum),
+                    diskon: Number(d.diskon),
+                    is_tanpa_waktu: !!d.is_tanpa_waktu,
+                    tanggal_mulai: d.tanggal_mulai,
+                    tanggal_berakhir: d.tanggal_berakhir,
+                    isExisting: true
+                }));
+                state.oldDiskon = JSON.parse(JSON.stringify(state.newProduct.diskon));
+                renderDiskonList();
             }
+        } catch (error) {
+            console.error('Error loading diskon:', error);
+        }
+    }
+
+    function tambahDiskonBaru() {
+        const jumlahMinimum = parseInt(document.getElementById('newDiskonMinimum').value) || 0;
+        const diskonPersen = parseFloat(document.getElementById('newDiskonPersen').value) || 0;
+        const tanpaWaktu = document.getElementById('diskonTanpaWaktu').checked;
+        const mulai = document.getElementById('diskonMulai').value;
+        const berakhir = document.getElementById('diskonBerakhir').value;
+
+        if (jumlahMinimum <= 0) {
+            showAlert('Masukkan jumlah minimum yang valid', 'warning');
+            return;
+        }
+        if (diskonPersen <= 0 || diskonPersen > 100) {
+            showAlert('Masukkan diskon antara 0.01% - 100%', 'warning');
+            return;
+        }
+        if (!tanpaWaktu && (!mulai || !berakhir)) {
+            showAlert('Masukkan tanggal mulai dan berakhir', 'warning');
+            return;
+        }
+        if (!tanpaWaktu && new Date(mulai) >= new Date(berakhir)) {
+            showAlert('Tanggal berakhir harus setelah tanggal mulai', 'warning');
+            return;
+        }
+        if (!state.newProduct.diskon) {
+            state.newProduct.diskon = [];
+        }
+        if (state.newProduct.diskon.find(d => d.jumlah_minimum === jumlahMinimum)) {
+            showAlert('Diskon untuk jumlah minimum ini sudah ada', 'warning');
+            return;
+        }
+
+        state.newProduct.diskon.push({
+            id: Date.now(),
+            jumlah_minimum: jumlahMinimum,
+            diskon: diskonPersen,
+            is_tanpa_waktu: tanpaWaktu,
+            tanggal_mulai: tanpaWaktu ? null : mulai,
+            tanggal_berakhir: tanpaWaktu ? null : berakhir,
+            isExisting: false // <-- Penting!
         });
 
-        try {
-            for (const form of barcodeForms) {
-                const formData = new FormData(form);
-                const produkId = form.dataset.produkId;
-                const produk = state.selectedProduk.find(p => p.id == produkId);
-                const kodeBarcode = formData.get('kode_barcode');
+        // Reset form
+        document.getElementById('newDiskonMinimum').value = '';
+        document.getElementById('newDiskonPersen').value = '';
+        document.getElementById('diskonTanpaWaktu').checked = true;
+        document.getElementById('diskonMulai').value = '';
+        document.getElementById('diskonBerakhir').value = '';
+        toggleWaktuDiskon();
 
-                if (!kodeBarcode) {
-                    results.push({
-                        success: false,
-                        produk: produk.nama_produk,
-                        message: 'Barcode kosong, dilewati'
-                    });
-                    continue;
+        renderDiskonList();
+        showAlert('Diskon ditambahkan', 'success');
+    }
+
+    async function hapusDiskon(id) {
+        if (!state.newProduct.diskon) return;
+        const diskonDihapus = state.newProduct.diskon.find(d => d.id === id);
+
+        if (diskonDihapus && diskonDihapus.isExisting) {
+            try {
+                await fetch(`/api/produk/diskon/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken }
+                });
+            } catch (e) {
+                showAlert('Gagal menghapus diskon di server', 'danger');
+                return;
+            }
+        }
+
+        state.newProduct.diskon = state.newProduct.diskon.filter(d => d.id !== id);
+        renderDiskonList();
+        showAlert('Diskon dihapus', 'success');
+
+        if (diskonDihapus) {
+            saveTracking({
+                aksi: 'hapus_diskon',
+                keterangan: `Hapus diskon: Min. ${diskonDihapus.jumlah_minimum} ${(document.querySelector('[name="satuan"]').value || 'pcs')} → ${diskonDihapus.diskon}%` +
+                    (diskonDihapus.is_tanpa_waktu ? ' (permanen)' : ` (${diskonDihapus.tanggal_mulai} - ${diskonDihapus.tanggal_berakhir})`),
+                produk_id: state.selectedProduk[0]?.id,
+                nama_produk: state.selectedProduk[0]?.nama_produk
+            });
+        }
+    }
+
+    function renderDiskonList() {
+        const container = document.getElementById('diskonListContainer');
+        if (!container) return;
+
+        if (!state.newProduct.diskon || state.newProduct.diskon.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state text-center py-4">
+                    <i class="fas fa-percent fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">Belum ada diskon</p>
+                </div>
+            `;
+        } else {
+            container.innerHTML = state.newProduct.diskon.map(d => {
+                const waktuText = d.is_tanpa_waktu ?
+                    '<span class="badge bg-success">Permanen</span>' :
+                    `<small class="text-muted">${formatDate(d.tanggal_mulai)} - ${formatDate(d.tanggal_berakhir)}</small>`;
+
+                return `
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-3 border rounded bg-light">
+                        <div>
+                            <div>
+                                <strong>Min. ${d.jumlah_minimum} ${document.querySelector('[name="satuan"]').value || 'pcs'}</strong>
+                                → <span class="text-primary">${d.diskon}% diskon</span>
+                            </div>
+                            ${waktuText}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusDiskon(${d.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        updateDiskonCounter();
+        updateStepCounters(); // Update tab badges
+    }
+
+    function updateDiskonCounter() {
+        const counter = document.getElementById('diskonCount');
+        if (counter) {
+            const count = state.newProduct.diskon ? state.newProduct.diskon.length : 0;
+            counter.textContent = count;
+        }
+    }
+
+    function toggleWaktuDiskon() {
+        const checkbox = document.getElementById('diskonTanpaWaktu');
+        const container = document.getElementById('waktuDiskonContainer');
+
+        if (container) {
+            container.style.display = checkbox.checked ? 'none' : 'block';
+        }
+    }
+
+    // SAVE PRODUCT - SIMPLIFIED
+    async function saveCompleteProduct() {
+        const form = document.getElementById('formTambahProduk');
+        const isEditMode = state.selectedProduk && state.selectedProduk.length > 0;
+
+        // Jika multi-edit, simpan draft terakhir yang aktif
+        if (isEditMode && state.selectedProduk.length > 1) {
+            const select = document.getElementById('selectEditProduk');
+            if (select) {
+                saveCurrentProductDraft(parseInt(select.value));
+            }
+        }
+
+        // Ambil daftar produk yang akan disimpan (multi atau single)
+        const produkList = isEditMode ? state.selectedProduk : [null];
+
+        try {
+
+            for (const produk of produkList) {
+                let produkId = produk ? produk.id : null;
+                let produkData, barcodes, konversiSatuan, diskon;
+
+                if (isEditMode) {
+                    // Ambil draft jika ada, fallback ke data form
+                    const draft = state.productDrafts[produkId];
+                    produkData = draft ? {
+                        nama_produk: draft.nama_produk,
+                        kategori: draft.kategori,
+                        supplier: draft.supplier,
+                        satuan: draft.satuan,
+                        stok: parseInt(draft.stok) || 0,
+                        harga_beli: parseInt((draft.harga_beli || '').replace(/[^\d]/g, '')) || 0,
+                        harga_jual: parseInt((draft.harga_jual || '').replace(/[^\d]/g, '')) || 0
+                    } : {
+                        nama_produk: form.querySelector('[name="nama_produk"]').value,
+                        kategori: form.querySelector('[name="kategori"]').value,
+                        supplier: form.querySelector('[name="supplier"]').value,
+                        satuan: form.querySelector('[name="satuan"]').value,
+                        stok: parseInt(form.querySelector('[name="stok"]').value) || 0,
+                        harga_beli: parseInt(form.querySelector('[name="harga_beli"]').value.replace(/[^\d]/g, '')) || 0,
+                        harga_jual: parseInt(form.querySelector('[name="harga_jual"]').value.replace(/[^\d]/g, '')) || 0
+                    };
+                    barcodes = draft ? draft.barcodes : state.newProduct.barcodes;
+                    konversiSatuan = draft ? draft.konversiSatuan : state.newProduct.konversiSatuan;
+                    diskon = draft ? draft.diskon : state.newProduct.diskon;
+                } else {
+                    // Tambah produk baru
+                    const formData = new FormData(form);
+                    produkData = {
+                        nama_produk: formData.get('nama_produk'),
+                        kategori: formData.get('kategori'),
+                        supplier: formData.get('supplier'),
+                        satuan: formData.get('satuan'),
+                        stok: parseInt(formData.get('stok')) || 0,
+                        harga_beli: parseInt(formData.get('harga_beli').replace(/[^\d]/g, '')) || 0,
+                        harga_jual: parseInt(formData.get('harga_jual').replace(/[^\d]/g, '')) || 0
+                    };
+                    barcodes = state.newProduct.barcodes;
+                    konversiSatuan = state.newProduct.konversiSatuan;
+                    diskon = state.newProduct.diskon;
                 }
 
-                const barcodeData = {
-                    produk_id: produkId,
-                    kode_barcode: kodeBarcode,
-                    is_utama: formData.get('is_utama') === 'on'
-                };
+                if (!produkData.nama_produk) {
+                    showAlert('Nama produk wajib diisi', 'warning');
+                    return;
+                }
 
-                try {
-                    const response = await fetch('/api/produk/barcode', {
+                let response, result;
+                if (isEditMode) {
+                    // Edit produk
+                    response = await fetch(`/api/produk/${produkId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': DOM.meta.csrfToken
+                        },
+                        body: JSON.stringify(produkData)
+                    });
+                    result = await response.json();
+
+                    await saveTracking({
+                        aksi: 'edit_produk',
+                        keterangan: `Edit produk: Data Dasar (${produkData.nama_produk})`,
+                        produk_id: produkId,
+                        nama_produk: produkData.nama_produk
+                    });
+
+                } else {
+                    // Tambah produk baru
+                    response = await fetch('/api/produk', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': DOM.meta.csrfToken
                         },
-                        body: JSON.stringify(barcodeData),
-                        credentials: 'same-origin'
+                        body: JSON.stringify(produkData)
                     });
+                    result = await response.json();
+                    produkId = result.data.id;
 
-                    const result = await response.json();
-                    results.push({
-                        success: response.ok,
-                        produk: produk.nama_produk,
-                        message: result.message || (response.ok ? 'Barcode berhasil disimpan' : 'Gagal menyimpan barcode')
+                    // 1. Tracking tambah produk
+                    await saveTracking({
+                        aksi: 'tambah_produk',
+                        keterangan: `Supplier: ${produkData.supplier || 'Tanpa Supplier'} | Stok: ${produkData.stok}`,
+                        produk_id: produkId,
+                        nama_produk: produkData.nama_produk
                     });
+                }
 
-                    if (response.ok) {
-                        await loadBarcodeProduk(produkId);
-                        form.reset();
-                        document.getElementById(`barcode-preview-${produkId}`).innerHTML = '';
+                if (!response.ok) {
+                    throw new Error(result.message || 'Gagal menyimpan');
+                }
 
+                // 2. Simpan satuan baru & tracking
+                if (konversiSatuan && konversiSatuan.length > 0) {
+                    for (const konversi of konversiSatuan) {
+                        await fetch('/api/produk/satuan', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': DOM.meta.csrfToken
+                            },
+                            body: JSON.stringify({
+                                produk_id: produkId,
+                                satuan_besar: konversi.satuan_besar,
+                                jumlah_satuan: konversi.jumlah_satuan,
+                                konversi_satuan: konversi.konversi_satuan
+                            })
+                        });
+
+                        // Tracking satuan
                         await saveTracking({
-                            produk_id: produk.id,
-                            nama_produk: produk.nama_produk,
-                            aksi: 'barcode',
-                            keterangan: `Barcode baru: ${kodeBarcode}${barcodeData.is_utama ? ' (utama)' : ''}`
+                            aksi: 'tambah_satuan',
+                            keterangan: `Tambah satuan: ${konversi.jumlah_satuan} ${konversi.satuan_besar} = ${konversi.konversi_satuan} ${produkData.satuan || 'pcs'}`,
+                            produk_id: produkId,
+                            nama_produk: produkData.nama_produk
                         });
                     }
-                } catch (error) {
-                    results.push({
-                        success: false,
-                        produk: produk.nama_produk,
-                        message: 'Terjadi kesalahan jaringan'
-                    });
+                }
+
+                // 3. Simpan barcode baru & tracking
+                if (barcodes && barcodes.length > 0) {
+                    for (const barcode of barcodes) {
+                        await fetch('/api/produk/barcode', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': DOM.meta.csrfToken
+                            },
+                            body: JSON.stringify({
+                                produk_id: produkId,
+                                kode_barcode: barcode.kode_barcode,
+                                is_utama: barcode.is_utama
+                            })
+                        });
+
+                        // Tracking barcode
+                        await saveTracking({
+                            aksi: 'tambah_barcode',
+                            keterangan: `Tambah barcode: ${barcode.kode_barcode}`,
+                            produk_id: produkId,
+                            nama_produk: produkData.nama_produk
+                        });
+                    }
+                }
+
+                // 4. Simpan diskon baru & tracking
+                if (diskon && diskon.length > 0) {
+                    for (const d of diskon) {
+                        await fetch('/api/produk/diskon', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': DOM.meta.csrfToken
+                            },
+                            body: JSON.stringify({
+                                produk_id: produkId,
+                                jumlah_minimum: d.jumlah_minimum,
+                                diskon: d.diskon,
+                                is_tanpa_waktu: d.is_tanpa_waktu,
+                                tanggal_mulai: d.tanggal_mulai,
+                                tanggal_berakhir: d.tanggal_berakhir
+                            })
+                        });
+
+                        // Tracking diskon
+                        await saveTracking({
+                            aksi: 'tambah_diskon',
+                            keterangan: `Tambah diskon: Min. ${d.jumlah_minimum} ${produkData.satuan || 'pcs'} → ${d.diskon}%${d.is_tanpa_waktu ? ' (permanen)' : ` (${d.tanggal_mulai} - ${d.tanggal_berakhir})`}`,
+                            produk_id: produkId,
+                            nama_produk: produkData.nama_produk
+                        });
+                    }
+
                 }
             }
 
-            await loadingSwal.close();
-
-            const successCount = results.filter(r => r.success).length;
-            const errorCount = results.length - successCount;
-
-            let message = `<div class="text-start">`;
-            message += `<p><strong>Ringkasan Penyimpanan Barcode:</strong></p>`;
-            message += `<ul>`;
-
-            results.forEach(result => {
-                message += `<li class="${result.success ? 'text-success' : 'text-danger'}">`;
-                message += `<strong>${result.produk}:</strong> ${result.message}`;
-                message += `</li>`;
-            });
-
-            message += `</ul>`;
-            message += `</div>`;
-
             await Swal.fire({
-                title: `Hasil Penyimpanan`,
-                html: message,
-                icon: errorCount > 0 ? (successCount > 0 ? 'warning' : 'error') : 'success',
-                confirmButtonText: 'OK'
+                title: 'Berhasil!',
+                text: isEditMode && state.selectedProduk.length > 1
+                    ? 'Semua perubahan produk berhasil disimpan.'
+                    : 'Produk lengkap berhasil disimpan',
+                icon: 'success',
+                confirmButtonText: 'OK',
+                timer: 3000,
+                timerProgressBar: true
             });
 
-            if (errorCount === 0) {
-                const tabPanes = document.querySelectorAll('.barcode-tab-pane');
-                tabPanes.forEach(tab => {
-                    tab.classList.remove('show', 'active');
-                });
-
-                const tabLinks = document.querySelectorAll('.barcode-tab-link');
-                tabLinks.forEach(link => {
-                    link.classList.remove('active');
-                });
-            }
+            DOM.modals.baru.hide();
+            await loadData(state.currentSort.field, state.currentSort.direction);
 
         } catch (error) {
-            await loadingSwal.close();
-            console.error('Error:', error);
+            console.error('Save error:', error);
             await Swal.fire({
-                title: 'Error',
-                text: 'Terjadi kesalahan saat memproses barcode',
+                title: 'Gagal Menyimpan!',
+                text: 'Terjadi kesalahan: ' + error.message,
                 icon: 'error',
                 confirmButtonText: 'OK'
             });
         }
     }
 
-    async function hapusBarcode(barcodeId, produkId, button) {
-        const { isConfirmed } = await Swal.fire({
-            title: 'Hapus Barcode?',
-            text: 'Barcode akan dihapus permanen!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Ya, Hapus!'
+    // SELECTION MANAGEMENT
+    function handleTableClick(e) {
+        const row = e.target.closest('tr');
+        if (!row || !row.dataset.id) return;
+
+        if (e.target.classList.contains('row-checkbox')) return;
+
+        const checkbox = row.querySelector('.row-checkbox');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            handleRowCheckboxChange(checkbox);
+        }
+    }
+
+    function handleRowCheckboxChange(checkbox) {
+        const produkId = parseInt(checkbox.dataset.id);
+        const produk = state.allProducts.find(p => p.id === produkId);
+
+        if (checkbox.checked) {
+            if (!state.selectedProduk.some(p => p.id === produkId)) {
+                state.selectedProduk.push(produk);
+            }
+        } else {
+            state.selectedProduk = state.selectedProduk.filter(p => p.id !== produkId);
+        }
+
+        updateSelectedCounter();
+    }
+
+    function handleSelectedRow() {
+        const checkboxes = document.querySelectorAll('.row-checkbox');
+        const isChecked = DOM.table.selectAll.checked;
+
+        checkboxes.forEach(checkbox => {
+            const produkId = parseInt(checkbox.dataset.id);
+            const produk = state.allProducts.find(p => p.id === produkId);
+
+            checkbox.checked = isChecked;
+
+            if (isChecked) {
+                if (!state.selectedProduk.some(p => p.id === produkId)) {
+                    state.selectedProduk.push(produk);
+                }
+            } else {
+                state.selectedProduk = state.selectedProduk.filter(p => p.id !== produkId);
+            }
         });
 
-        if (!isConfirmed) return;
+        updateSelectedCounter();
+    }
 
-        const originalHtml = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        button.disabled = true;
+    function updateSelectedCounter() {
+        const selectedCount = state.selectedProduk.length;
+        const counterElement = document.getElementById('selectedCounter');
 
-        try {
-            const response = await fetch(`/api/produk/barcode/${barcodeId}`, {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken },
-                credentials: 'same-origin'
-            });
+        if (counterElement) {
+            counterElement.textContent = selectedCount;
+            counterElement.style.display = selectedCount > 0 ? 'inline' : 'none';
+        }
 
-            if (!response.ok) throw new Error('Gagal menghapus');
-
-            await loadBarcodeProduk(produkId);
-            showAlert('Barcode berhasil dihapus!', 'success');
-        } catch (error) {
-            showAlert(`Gagal menghapus: ${error.message}`, 'danger');
-        } finally {
-            button.innerHTML = originalHtml;
-            button.disabled = false;
+        const deleteBtn = document.getElementById('hapusProdukBtn');
+        if (deleteBtn) {
+            deleteBtn.disabled = selectedCount === 0;
         }
     }
 
-    async function setAsUtamaBarcode(barcodeId, produkId) {
+    // EDIT MODE - RESTORED IMPORTANT FUNCTION
+    function enterEditMode() {
+        state.isEditMode = true;
+
+        const editBtn = document.getElementById('editTableBtn');
+        const exitBtn = document.getElementById('exitEditModeBtn');
+        const banner = document.getElementById('editModeBanner');
+
+        if (editBtn) editBtn.classList.add('d-none');
+        if (exitBtn) exitBtn.classList.remove('d-none');
+        if (banner) banner.classList.remove('d-none');
+
+        document.querySelectorAll('.editable-cell').forEach(cell => {
+            cell.contentEditable = true;
+            cell.style.backgroundColor = '#f8f9fa';
+            cell.style.border = '1px dashed #007bff';
+            cell.style.cursor = 'text';
+
+            // Remove existing listeners untuk avoid duplicate
+            cell.removeEventListener('keypress', handleCellKeypress);
+            cell.removeEventListener('blur', handleCellBlur);
+            cell.removeEventListener('focus', handleCellFocus);
+
+            // Add event listeners
+            cell.addEventListener('keypress', handleCellKeypress);
+            cell.addEventListener('blur', handleCellBlur);
+            cell.addEventListener('focus', handleCellFocus);
+        });
+
+        // Success notification
+        Swal.fire({
+            title: 'Mode Edit Aktif!',
+            text: 'Klik sel untuk mengedit data. Tekan Enter atau klik di luar sel untuk menyimpan.',
+            icon: 'info',
+            timer: 3000,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false
+        });
+    }
+
+    function exitEditMode() {
+        state.isEditMode = false;
+
+        const editBtn = document.getElementById('editTableBtn');
+        const exitBtn = document.getElementById('exitEditModeBtn');
+        const banner = document.getElementById('editModeBanner');
+
+        if (editBtn) editBtn.classList.remove('d-none');
+        if (exitBtn) exitBtn.classList.add('d-none');
+        if (banner) banner.classList.add('d-none');
+
+        document.querySelectorAll('.editable-cell').forEach(cell => {
+            cell.contentEditable = false;
+            cell.style.backgroundColor = '';
+            cell.style.border = '';
+            cell.style.cursor = '';
+
+            // Remove event listeners
+            cell.removeEventListener('keypress', handleCellKeypress);
+            cell.removeEventListener('blur', handleCellBlur);
+            cell.removeEventListener('focus', handleCellFocus);
+        });
+
+        // Success notification
+        Swal.fire({
+            title: 'Mode Edit Dinonaktifkan',
+            text: 'Tabel kembali ke mode normal',
+            icon: 'success',
+            timer: 2000,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false
+        });
+    }
+
+    function handleCellKeypress(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.target.blur(); // Trigger save
+        }
+    }
+
+    function handleCellBlur(e) {
+        saveCellEdit(e.target);
+    }
+
+    function handleCellFocus(e) {
+        const cell = e.target;
+        const field = cell.dataset.field;
+
+        // Untuk field harga, hilangkan format saat editing
+        if (field && field.includes('harga')) {
+            const rawValue = cell.textContent.replace(/[^\d]/g, '');
+            cell.textContent = rawValue;
+        }
+
+        // Untuk field stok, ambil angka dari badge
+        if (field === 'stok') {
+            const stokMatch = cell.textContent.match(/\d+/);
+            if (stokMatch) {
+                cell.textContent = stokMatch[0];
+            }
+        }
+
+        cell.style.backgroundColor = '#fff3cd';
+    }
+
+    // DELETE FUNCTION - RESTORED
+    async function deleteSelected() {
+        if (state.selectedProduk.length === 0) {
+            await Swal.fire({
+                title: 'Tidak Ada Data',
+                text: 'Pilih produk yang akan dihapus terlebih dahulu',
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
+        // Prepare product list for display
+        const produkNames = state.selectedProduk.slice(0, 3).map(p => p.nama_produk);
+        const extraCount = state.selectedProduk.length > 3 ? state.selectedProduk.length - 3 : 0;
+
+        // SweetAlert konfirmasi dengan input password
+        const result = await Swal.fire({
+            title: 'Konfirmasi Hapus Produk',
+            html: `
+                <div>
+                    <p>Anda akan menghapus <strong>${state.selectedProduk.length} produk</strong> berikut:</p>
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                        ${produkNames.map(name => `• ${name}`).join('<br>')}
+                        ${extraCount > 0 ? `<br>• dan ${extraCount} produk lainnya...` : ''}
+                    </div>
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; margin: 10px 0; border-radius: 5px; color: #721c24;">
+                        <strong>Peringatan:</strong> Data yang dihapus tidak dapat dikembalikan!
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <label for="swal-password" style="display: block; margin-bottom: 5px; font-weight: bold;">
+                            Masukkan Password untuk Konfirmasi:
+                        </label>
+                        <input type="password" id="swal-password" class="swal2-input"
+                            placeholder="Password Anda" style="width: 100%; margin: 0;">
+                    </div>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, Hapus!',
+            cancelButtonText: 'Batal',
+            focusConfirm: false,
+            preConfirm: () => {
+                const password = document.getElementById('swal-password').value;
+                if (!password) {
+                    Swal.showValidationMessage('Password wajib diisi!');
+                    return false;
+                }
+                if (password.length < 3) {
+                    Swal.showValidationMessage('Password terlalu pendek!');
+                    return false;
+                }
+                return password;
+            }
+        });
+
+        // Jika user klik batal
+        if (!result.isConfirmed) {
+            return;
+        }
+
+        const password = result.value;
+
         try {
-            const response = await fetch(`/api/produk/barcode/${barcodeId}/set-utama`, {
-                method: 'PUT',
-                headers: { 'X-CSRF-TOKEN': DOM.meta.csrfToken },
-                credentials: 'same-origin'
+            const produkIds = state.selectedProduk.map(p => p.id);
+            const allProdukNames = state.selectedProduk.map(p => p.nama_produk);
+
+            await saveTracking({
+                aksi: 'hapus_produk',
+                keterangan: `Hapus ${produkIds.length} produk: ${
+                    state.selectedProduk.map(p =>
+                        `${p.nama_produk} (${p.stok > 0 ? 'stok ' + p.stok : 'stok kosong'})`
+                    ).join(', ')
+                }`,
+                produk_id: produkIds.join(','),
+                nama_produk: allProdukNames.join(', ')
             });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Gagal mengubah barcode utama');
+            const response = await fetch('/api/produk/delete-multiple', {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': DOM.meta.csrfToken,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    ids: produkIds,
+                    password: password
+                })
+            });
+
+            // PERBAIKI: Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            let responseData;
+
+            if (contentType && contentType.includes('application/json')) {
+                responseData = await response.json();
+            } else {
+                // If not JSON, get text and log it
+                const responseText = await response.text();
+                console.error('Non-JSON response:', responseText);
+                throw new Error(`Server error: ${response.status} - ${responseText.substring(0, 100)}`);
             }
 
-            await loadBarcodeProduk(produkId);
-            showAlert('Barcode utama berhasil diubah!', 'success');
+            console.log('Response data:', responseData); // Debug log
+
+            if (response.ok && responseData.success) {
+                // Success notification
+                await Swal.fire({
+                    title: 'Berhasil!',
+                    text: `${state.selectedProduk.length} produk berhasil dihapus dari sistem.`,
+                    icon: 'success',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#198754',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+
+                // Reset selection dan reload data
+                state.selectedProduk = [];
+                updateSelectedCounter();
+                await loadData(state.currentSort.field, state.currentSort.direction);
+            } else if (response.status === 401) {
+                // UNAUTHORIZED: Password salah
+                await Swal.fire({
+                    title: 'Password Salah!',
+                    html: `
+                        <div class="text-center">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Password yang Anda masukkan tidak sesuai dengan akun Anda.
+                            </div>
+                            <p class="text-muted">Silakan masukkan password yang benar untuk melanjutkan penghapusan data.</p>
+                        </div>
+                    `,
+                    icon: 'error',
+                    confirmButtonText: 'Coba Lagi',
+                    confirmButtonColor: '#dc3545',
+                    showCancelButton: true,
+                    cancelButtonText: 'Batal',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Panggil fungsi delete lagi untuk retry
+                        setTimeout(() => deleteSelected(), 500);
+                    }
+                });
+            } else {
+                throw new Error(responseData.message || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
         } catch (error) {
-            console.error('Error:', error);
-            showAlert(`Gagal mengubah barcode utama: ${error.message}`, 'danger');
+            console.error('Delete error:', error);
+
+            // Error notification dengan detail lebih lengkap
+            await Swal.fire({
+                title: 'Gagal Menghapus!',
+                html: `
+                    <div class="text-center">
+                        <p class="mb-2">Terjadi kesalahan saat menghapus produk:</p>
+                        <div class="alert alert-danger text-start">
+                            <strong>Error:</strong> ${error.message}
+                        </div>
+                        <small class="text-muted">
+                            Silakan cek console browser (F12) untuk detail lebih lengkap.
+                        </small>
+                    </div>
+                `,
+                icon: 'error',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#dc3545'
+            });
         }
     }
 
-    function generateRandomUPC(produkId) {
-        const form = document.querySelector(`.barcode-form[data-produk-id="${produkId}"]`);
-        const barcodeInput = form.querySelector('[name="kode_barcode"]');
-        const previewContainer = document.getElementById(`barcode-preview-${produkId}`);
+    // EXPORT FUNCTIONS - KEEP AS IS
+    function exportToExcel() {
+        try {
+            const currentData = getCurrentFilteredData();
+            if (currentData.length === 0) {
+                showAlert('Tidak ada data untuk diekspor', 'warning');
+                return;
+            }
 
+            const wb = XLSX.utils.book_new();
+            const exportData = currentData.map((item, index) => ({
+                'No': index + 1,
+                'Nama Produk': item.nama_produk || '',
+                'Kategori': item.kategori || '',
+                'Supplier': item.supplier || '',
+                'Satuan': item.satuan || '',
+                'Stok': item.stok || 0,
+                'Harga Beli': item.harga_beli || 0,
+                'Harga Jual': item.harga_jual || 0
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            XLSX.utils.book_append_sheet(wb, ws, 'Data Produk');
+
+            const filename = `data_produk_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, filename);
+
+            showAlert('Excel berhasil diunduh', 'success');
+
+        } catch (error) {
+            showAlert('Gagal export Excel: ' + error.message, 'danger');
+        }
+    }
+
+    function exportToPdf() {
+        try {
+            const currentData = getCurrentFilteredData();
+            if (currentData.length === 0) {
+                showAlert('Tidak ada data untuk diekspor', 'warning');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape', 'mm', 'a4');
+
+            doc.setFontSize(16);
+            doc.text('DATA PRODUK', 148, 20, { align: 'center' });
+
+            const tableData = currentData.map((item, index) => [
+                index + 1,
+                item.nama_produk || '',
+                item.kategori || '',
+                item.supplier || '',
+                item.satuan || '',
+                item.stok || 0,
+                formatCurrency(item.harga_beli || 0).replace('Rp ', ''),
+                formatCurrency(item.harga_jual || 0).replace('Rp ', '')
+            ]);
+
+            doc.autoTable({
+                head: [['No', 'Nama Produk', 'Kategori', 'Supplier', 'Satuan', 'Stok', 'Harga Beli', 'Harga Jual']],
+                body: tableData,
+                startY: 30
+            });
+
+            const filename = `data_produk_${new Date().toISOString().slice(0, 10)}.pdf`;
+            doc.save(filename);
+
+            showAlert('PDF berhasil diunduh', 'success');
+
+        } catch (error) {
+            showAlert('Gagal export PDF: ' + error.message, 'danger');
+        }
+    }
+
+    function getCurrentFilteredData() {
+        const searchTerm = document.getElementById('searchProdukInput').value.toLowerCase().trim();
+        const kategori = DOM.filters.kategori.value;
+        const supplier = DOM.filters.supplier.value;
+
+        let filteredData = [...state.allProducts];
+
+        if (searchTerm) {
+            filteredData = filteredData.filter(item => {
+                const nama = (item.nama_produk || '').toLowerCase();
+                const kat = (item.kategori || '').toLowerCase();
+                const sup = (item.supplier || '').toLowerCase();
+                return nama.includes(searchTerm) || kat.includes(searchTerm) || sup.includes(searchTerm);
+            });
+        }
+
+        if (kategori) {
+            filteredData = filteredData.filter(item => item.kategori === kategori);
+        }
+
+        if (supplier) {
+            filteredData = filteredData.filter(item => item.supplier === supplier);
+        }
+
+        return filteredData;
+    }
+
+    // UTILITY FUNCTIONS
+    function populateFilters(data) {
+        const categories = [...new Set(data.map(item => item.kategori).filter(Boolean))];
+        DOM.filters.kategori.innerHTML = '<option value="">Semua Kategori</option>' +
+            categories.sort().map(cat => `<option value="${cat}">${cat}</option>`).join('');
+
+        const suppliers = [...new Set(data.map(item => item.supplier).filter(Boolean))];
+        DOM.filters.supplier.innerHTML = '<option value="">Semua Supplier</option>' +
+            suppliers.sort().map(sup => `<option value="${sup}">${sup}</option>`).join('');
+    }
+
+    function updateTotals(data) {
+        const totals = data.reduce((acc, item) => {
+            acc.produk++;
+            acc.stok += item.stok || 0;
+            acc.modal += (item.harga_beli || 0) * (item.stok || 0);
+            acc.nilaiProduk += (item.harga_jual || 0) * (item.stok || 0);
+            return acc;
+        }, { produk: 0, stok: 0, modal: 0, nilaiProduk: 0 });
+
+        const elements = {
+            totalProduk: document.getElementById('totalProdukCount'),
+            totalStok: document.getElementById('totalStokCount'),
+            totalModal: document.getElementById('totalModalCount'),
+            totalNilaiProduk: document.getElementById('nilaiTotalProdukCount')
+        };
+
+        if (elements.totalProduk) elements.totalProduk.textContent = totals.produk.toLocaleString('id-ID');
+        if (elements.totalStok) elements.totalStok.textContent = totals.stok.toLocaleString('id-ID');
+        if (elements.totalModal) elements.totalModal.textContent = formatCurrency(totals.modal);
+        if (elements.totalNilaiProduk) elements.totalNilaiProduk.textContent = formatCurrency(totals.nilaiProduk);
+    }
+
+    function formatCurrency(amount) {
+        if (!amount || amount === 0) return 'Rp 0';
+        return 'Rp ' + parseInt(amount).toLocaleString('id-ID');
+    }
+
+    function formatRelativeDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHour = Math.floor(diffMin / 60);
+        const diffDay = Math.floor(diffHour / 24);
+
+        if (diffSec < 60) return 'Baru saja';
+        if (diffMin < 60) return `${diffMin} menit lalu`;
+        if (diffHour < 24) return `${diffHour} jam lalu`;
+        if (diffDay === 1) return 'Kemarin';
+        if (diffDay <= 7) return `${diffDay} hari lalu`;
+        if (diffDay <= 30) return `${Math.ceil(diffDay / 7)} minggu lalu`;
+        return `${Math.ceil(diffDay / 365)} tahun lalu`;
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    }
+
+    function setupModalEventListeners() {
+        // Currency formatting dengan clear value
+        document.querySelectorAll('.currency-input').forEach(input => {
+            input.removeEventListener('input', handleCurrencyInput);
+            input.addEventListener('input', handleCurrencyInput);
+
+            // Clear autocomplete
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('autocapitalize', 'off');
+            input.setAttribute('autocorrect', 'off');
+            input.setAttribute('spellcheck', 'false');
+        });
+
+        // All input fields - prevent browser caching
+        document.querySelectorAll('#formTambahProduk input').forEach(input => {
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('autocapitalize', 'off');
+            input.setAttribute('autocorrect', 'off');
+            input.setAttribute('spellcheck', 'false');
+
+            // Remove any stored values
+            input.removeAttribute('value');
+        });
+
+        // Margin calculation
+        const hargaBeli = document.querySelector('[name="harga_beli"]');
+        const hargaJual = document.querySelector('[name="harga_jual"]');
+
+        if (hargaBeli && hargaJual) {
+            [hargaBeli, hargaJual].forEach(input => {
+                input.removeEventListener('input', calculateMargin);
+                input.addEventListener('input', calculateMargin);
+            });
+        }
+
+        // Unit updates
+        const satuanInput = document.querySelector('[name="satuan"]');
+        if (satuanInput) {
+            satuanInput.removeEventListener('input', handleSatuanInput);
+            satuanInput.addEventListener('input', handleSatuanInput);
+        }
+
+        // Barcode input
+        const barcodeInput = document.getElementById('newBarcodeInput');
+        if (barcodeInput) {
+            barcodeInput.removeEventListener('input', handleBarcodeInput);
+            barcodeInput.addEventListener('input', handleBarcodeInput);
+
+            barcodeInput.removeEventListener('keypress', handleBarcodeKeypress);
+            barcodeInput.addEventListener('keypress', handleBarcodeKeypress);
+        }
+
+        // Diskon tanpa waktu checkbox
+        const diskonTanpaWaktuCheckbox = document.getElementById('diskonTanpaWaktu');
+        if (diskonTanpaWaktuCheckbox) {
+            diskonTanpaWaktuCheckbox.removeEventListener('change', toggleWaktuDiskon);
+            diskonTanpaWaktuCheckbox.addEventListener('change', toggleWaktuDiskon);
+        }
+    }
+
+    function handleCurrencyInput(e) {
+        let value = e.target.value.replace(/[^\d]/g, '');
+        if (value) {
+            e.target.value = parseInt(value).toLocaleString('id-ID');
+        }
+    }
+
+    function handleSatuanInput(e) {
+        const unit = e.target.value || 'pcs';
+        const stokUnit = document.getElementById('stokUnit');
+        const konversiUnit = document.getElementById('konversiUnit');
+        const diskonUnit = document.getElementById('diskonUnit');
+
+        if (stokUnit) stokUnit.textContent = unit;
+        if (konversiUnit) konversiUnit.textContent = unit;
+        if (diskonUnit) diskonUnit.textContent = unit;
+    }
+
+    function handleBarcodeInput(e) {
+        const code = e.target.value.trim();
+        previewBarcodeRealtime(code);
+    }
+
+    function handleBarcodeKeypress(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            tambahBarcodeBaru();
+        }
+    }
+
+    function calculateMargin() {
+        const hargaBeli = parseInt(document.querySelector('[name="harga_beli"]').value.replace(/[^\d]/g, '')) || 0;
+        const hargaJual = parseInt(document.querySelector('[name="harga_jual"]').value.replace(/[^\d]/g, '')) || 0;
+
+        if (hargaBeli > 0 && hargaJual > 0) {
+            const margin = ((hargaJual - hargaBeli) / hargaBeli * 100).toFixed(1);
+            const marginEl = document.getElementById('marginPreview');
+            if (marginEl) {
+                marginEl.textContent = margin + '%';
+                marginEl.className = margin > 0 ? 'text-success' : 'text-danger';
+            }
+        }
+    }
+
+    function generateRandomBarcode() {
         let barcode = '';
+
+        // Generate random 12 digit
         for (let i = 0; i < 12; i++) {
             barcode += Math.floor(Math.random() * 10);
         }
 
-        let sum = 0;
-        for (let i = 0; i < 12; i++) {
-            sum += parseInt(barcode[i]) * (i % 2 === 0 ? 1 : 3);
-        }
-        const checkDigit = (10 - (sum % 10)) % 10;
-        barcode += checkDigit;
-
-        barcodeInput.value = barcode;
-
-        previewContainer.innerHTML = `
-            <div class="text-center border p-2">
-                <div id="barcode-preview-element-${produkId}"></div>
-                <div class="mt-2">${barcode}</div>
-            </div>
-        `;
-
-        renderBarcodePreview(`barcode-preview-element-${produkId}`, barcode, {
-            format: "EAN13",
-            height: 100,
-            displayValue: false
-        });
-    }
-
-    function printBarcode(barcodeData) {
-        if (!barcodeData || barcodeData.trim() === '') {
-            showAlert('Kode barcode tidak valid', 'warning');
+        // Check duplikasi di barcodes yang sudah ada
+        if (state.newProduct.barcodes.find(b => b.kode_barcode === barcode)) {
+            generateRandomBarcode(); // Generate ulang jika sama
             return;
         }
 
-        const printWindow = window.open('', '_blank');
-        const format = detectBarcodeFormat(barcodeData);
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Cetak Barcode</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        margin: 0;
-                        padding: 20px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        min-height: 100vh;
-                    }
-                    .barcode-container {
-                        text-align: center;
-                        margin: 20px 0;
-                        padding: 20px;
-                        border: 1px solid #eee;
-                    }
-                    .barcode-value {
-                        margin-top: 10px;
-                        font-size: 16px;
-                        font-weight: bold;
-                        letter-spacing: 2px;
-                    }
-                    .no-print {
-                        margin-top: 20px;
-                    }
-                    @media print {
-                        body { padding: 0; }
-                        .no-print { display: none; }
-                        .barcode-container { border: none; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="barcode-container">
-                    <${format === "EAN13" ? "canvas" : "svg"} id="barcode-print-element"></${format === "EAN13" ? "canvas" : "svg"}>
-                    <div class="barcode-value">${barcodeData}</div>
-                </div>
-                <div class="no-print">
-                    <button onclick="window.print()" class="btn btn-primary">Cetak</button>
-                    <button onclick="window.close()" class="btn btn-secondary" style="margin-left:10px">Tutup</button>
-                </div>
-                <script>
-                    window.onload = function() {
-                        try {
-                            JsBarcode("#barcode-print-element", "${barcodeData}", {
-                                format: "${format}",
-                                lineColor: "#000",
-                                width: ${format === "EAN13" ? 1.5 : 2},
-                                height: 80,
-                                displayValue: false,
-                                margin: 10
-                            });
-                        } catch(e) {
-                            document.querySelector(".barcode-container").innerHTML =
-                                '<p class="text-danger">Error: ' + e.message + '</p>';
-                        }
-                    }
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
+        // Set ke input
+        document.getElementById('newBarcodeInput').value = barcode;
+        previewBarcodeRealtime(barcode);
+        showAlert('Barcode: ' + barcode, 'success');
     }
 
-    function printAllBarcodes(barcodes) {
-        if (!barcodes || barcodes.length === 0) {
-            showAlert('Tidak ada barcode untuk dicetak', 'warning');
+    function tambahBarcodeBaru() {
+        const input = document.getElementById('newBarcodeInput');
+        const isUtama = document.getElementById('newBarcodeUtama').checked;
+        const kode = input.value.trim();
+
+        if (!kode) {
+            showAlert('Masukkan kode barcode', 'warning');
             return;
         }
 
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Cetak Semua Barcode</title>
-                <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        margin: 0;
-                        padding: 20px;
-                    }
-                    .page {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 20px;
-                        page-break-after: always;
-                    }
-                    .barcode-item {
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        padding: 15px;
-                        border: 1px dashed #ddd;
-                        page-break-inside: avoid;
-                    }
-                    .barcode-value {
-                        margin-top: 8px;
-                        font-size: 12px;
-                        word-break: break-all;
-                        text-align: center;
-                    }
-                    .no-print {
-                        position: fixed;
-                        bottom: 20px;
-                        right: 20px;
-                    }
-                    @media print {
-                        body { padding: 0; }
-                        .no-print { display: none; }
-                        .barcode-item { border: none; }
-                    }
-                </style>
-            </head>
-            <body>
-                <h1 class="no-print">Preview Cetakan (${barcodes.length} barcode)</h1>
-                <div id="barcodes-container"></div>
-                <div class="no-print">
-                    <button onclick="window.print()" class="btn btn-primary">Cetak</button>
-                    <button onclick="window.close()" class="btn btn-secondary" style="margin-left:10px">Tutup</button>
-                </div>
-                <script>
-                    window.onload = function() {
-                        const container = document.getElementById('barcodes-container');
-                        const barcodes = ${JSON.stringify(barcodes)};
+        if (state.newProduct.barcodes.find(b => b.kode_barcode === kode)) {
+            showAlert('Barcode sudah ada', 'warning');
+            return;
+        }
 
-                        // Organize into pages (9 per page)
-                        const itemsPerPage = 9;
-                        const pageCount = Math.ceil(barcodes.length / itemsPerPage);
+        // Auto set as primary if first barcode
+        const isFirstBarcode = state.newProduct.barcodes.length === 0;
 
-                        for (let page = 0; page < pageCount; page++) {
-                            const pageDiv = document.createElement('div');
-                            pageDiv.className = 'page';
-
-                            const start = page * itemsPerPage;
-                            const end = start + itemsPerPage;
-                            const pageItems = barcodes.slice(start, end);
-
-                            pageItems.forEach(barcode => {
-                                const format = ${detectBarcodeFormat.toString()}(barcode.kode_barcode);
-                                const itemDiv = document.createElement('div');
-                                itemDiv.className = 'barcode-item';
-                                itemDiv.innerHTML = \`
-                                    <\${format === "EAN13" ? "canvas" : "svg"}
-                                        id="barcode-\${barcode.id}"></\${format === "EAN13" ? "canvas" : "svg"}>
-                                    <div class="barcode-value">\${barcode.kode_barcode}</div>
-                                \`;
-                                pageDiv.appendChild(itemDiv);
-
-                                try {
-                                    JsBarcode("#barcode-\${barcode.id}", barcode.kode_barcode, {
-                                        format: format,
-                                        lineColor: "#000",
-                                        width: \${format === "EAN13" ? 1.5 : 2},
-                                        height: 60,
-                                        displayValue: false,
-                                        margin: 5
-                                    });
-                                } catch(e) {
-                                    itemDiv.innerHTML = '<p class="text-danger">Error: ' + e.message + '</p>';
-                                }
-                            });
-
-                            container.appendChild(pageDiv);
-                        }
-
-                        setTimeout(() => window.print(), 300);
-                    }
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-    }
-
-    // DISKON
-    function renderDiskonModalTabs() {
-        const tabsContainer = document.getElementById('produkDiskonTabs');
-        const tabContentContainer = document.getElementById('produkDiskonTabContent');
-
-        document.getElementById('jumlahProdukTerpilih').textContent = state.selectedProduk.length;
-
-        tabsContainer.innerHTML = '';
-        tabContentContainer.innerHTML = '';
-
-        state.selectedProduk.forEach((produk, index) => {
-            const isActive = index === 0;
-            const tabId = `produk-tab-${produk.id}`;
-            const contentId = `produk-content-${produk.id}`;
-
-            const tabItem = document.createElement('li');
-            tabItem.className = 'nav-item';
-            tabItem.innerHTML = `
-                <button class="nav-link ${isActive ? 'active' : ''}"
-                        id="${tabId}"
-                        data-bs-toggle="tab"
-                        data-bs-target="#${contentId}"
-                        type="button">
-                    ${produk.nama_produk}
-                </button>
-            `;
-            tabsContainer.appendChild(tabItem);
-
-            const tabContent = document.createElement('div');
-            tabContent.className = `tab-pane fade ${isActive ? 'show active' : ''}`;
-            tabContent.id = contentId;
-            tabContent.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <form class="diskon-form" data-produk-id="${produk.id}">
-                            <input type="hidden" name="produk_id" value="${produk.id}">
-                            <div class="mb-3">
-                                <label class="form-label">Jumlah Minimum</label>
-                                <input type="number" class="form-control" name="jumlah_minimum" required min="1">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Diskon (%)</label>
-                                <input type="number" class="form-control" name="diskon" required min="0" max="100" step="0.01">
-                            </div>
-                            <div class="mb-3 form-check">
-                                <input type="checkbox" class="form-check-input is_tanpa_waktu"
-                                    id="is_tanpa_waktu_${produk.id}" name="is_tanpa_waktu">
-                                <label class="form-check-label" for="is_tanpa_waktu_${produk.id}">Diskon Tanpa Batas Waktu</label>
-                            </div>
-                            <div class="waktu-diskon-container">
-                                <div class="mb-3">
-                                    <label class="form-label">Tanggal Mulai</label>
-                                    <input type="date" class="form-control" name="tanggal_mulai">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Tanggal Berakhir</label>
-                                    <input type="date" class="form-control" name="tanggal_berakhir">
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-primary btn-save-diskon-tab"
-                                    data-produk-id="${produk.id}">
-                                Simpan Diskon
-                            </button>
-                        </form>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>DAFTAR DISKON YANG BERLAKU</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Min. Qty</th>
-                                        <th>Diskon</th>
-                                        <th>Periode</th>
-                                        <th>Status</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="diskon-list-body" data-produk-id="${produk.id}">
-                                    <tr>
-                                        <td colspan="5" class="text-center">
-                                            <div class="spinner-border spinner-border-sm" role="status"></div>
-                                            Memuat data diskon...
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-            tabContentContainer.appendChild(tabContent);
-
-            loadDiskonProduk(produk.id);
-
-            const toggleEl = tabContent.querySelector('.is_tanpa_waktu');
-            const waktuContainer = tabContent.querySelector('.waktu-diskon-container');
-
-            toggleEl.addEventListener('change', function() {
-                waktuContainer.style.display = this.checked ? 'none' : 'block';
-            });
+        state.newProduct.barcodes.push({
+            id: Date.now(),
+            kode_barcode: kode,
+            is_utama: isUtama,
+            isExisting: false
         });
+
+        input.value = '';
+        document.getElementById('newBarcodeUtama').checked = false;
+        renderBarcodeList();
+        updateBarcodeCounter();
+        showAlert('Barcode ditambahkan', 'success');
     }
 
-    async function loadDiskonProduk(produkId) {
-        try {
-            const response = await fetch(`/api/produk/${produkId}/diskon`, {
-                credentials: 'same-origin'
-            });
-            const diskonList = await response.json();
+    function previewBarcodeRealtime(code) {
+        const container = document.getElementById('barcodePreviewContainer');
 
-            const diskonListBody = document.querySelector(`.diskon-list-body[data-produk-id="${produkId}"]`);
+        if (code && code.length > 3) {
+            // Create canvas element for barcode
+            container.innerHTML = `
+                <div class="barcode-preview text-center">
+                    <div class="mb-2">
+                        <canvas id="barcodeCanvas"></canvas>
+                    </div>
+                    <div class="bg-dark text-white px-2 py-1 font-monospace small">${code}</div>
+                </div>
+            `;
 
-            if (!diskonList || diskonList.length === 0) {
-                diskonListBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center text-muted">
-                            Tidak ada diskon yang tersedia
-                        </td>
-                    </tr>
+            // Generate barcode using JSBarcode
+            try {
+                const canvas = document.getElementById('barcodeCanvas');
+                if (canvas && window.JsBarcode) {
+                    JsBarcode(canvas, code, {
+                        format: "CODE128", // atau "EAN13", "UPC", dll
+                        width: 2,
+                        height: 50,
+                        displayValue: false, // Karena sudah ada text di bawah
+                        margin: 0,
+                        background: "#ffffff",
+                        lineColor: "#000000"
+                    });
+                }
+            } catch (error) {
+                console.error('Error generating barcode:', error);
+                // Fallback jika error
+                container.innerHTML = `
+                    <div class="barcode-preview">
+                        <div class="bg-dark text-white px-2 py-1 font-monospace small">${code}</div>
+                        <div class="text-muted small">Preview barcode tidak tersedia</div>
+                    </div>
                 `;
-                return;
             }
-
-            diskonListBody.innerHTML = diskonList.map(diskon => `
-                <tr data-id="${diskon.id}">
-                    <td>${diskon.jumlah_minimum}</td>
-                    <td>${diskon.diskon}%</td>
-                    <td>
-                        ${diskon.is_tanpa_waktu ? 'Selamanya' : `
-                            ${formatDate(diskon.tanggal_mulai)} - ${formatDate(diskon.tanggal_berakhir)}
-                        `}
-                    </td>
-                    <td>
-                        <span class="badge ${getDiskonStatusBadge(diskon)}">
-                            ${getDiskonStatusText(diskon)}
-                        </span>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger btn-hapus-diskon" id="">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading diskon:', error);
-            const diskonListBody = document.querySelector(`.diskon-list-body[data-produk-id="${produkId}"]`);
-            diskonListBody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center text-danger">
-                        Gagal memuat data diskon
-                    </td>
-                </tr>
-            `;
+        } else {
+            container.innerHTML = '<span class="text-muted">Preview akan muncul di sini</span>';
         }
     }
 
-    async function saveDiskon(form, produkId) {
-        const inputs = form.querySelectorAll('[required]');
-        let isValid = true;
-
-        inputs.forEach(input => {
-            if (!input.value.trim()) {
-                input.classList.add('is-invalid');
-                isValid = false;
-            }
-        });
-
-        if (!isValid) {
-            showAlert('Harap isi semua field yang wajib diisi', 'warning');
-            return;
+    function updateBarcodeCounter() {
+        const counter = document.getElementById('barcodeCount');
+        if (counter) {
+            counter.textContent = state.newProduct.barcodes.length;
         }
+    }
 
-        const formData = new FormData(form);
-        const produk = state.selectedProduk.find(p => p.id == produkId);
+    function showAlert(message, type = 'info') {
+        const iconMap = {
+            'success': 'success',
+            'danger': 'error',
+            'warning': 'warning',
+            'info': 'info'
+        };
 
-        const loadingSwal = Swal.fire({
-            title: 'MENYIMPAN DISKON',
-            html: 'SEDANG MEMPROSES DISKON...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
+        const colorMap = {
+            'success': '#198754',
+            'danger': '#dc3545',
+            'warning': '#ffc107',
+            'info': '#0dcaf0'
+        };
+
+        Swal.fire({
+            title: message,
+            icon: iconMap[type] || 'info',
+            timer: 3000,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timerProgressBar: true,
+            customClass: {
+                popup: 'swal-toast'
             }
         });
+    }
 
+    async function saveTracking(trackingData) {
         try {
-            const diskonData = {
-                produk_id: produkId,
-                jumlah_minimum: formData.get('jumlah_minimum'),
-                diskon: formData.get('diskon'),
-                is_tanpa_waktu: formData.get('is_tanpa_waktu') === 'on',
-                tanggal_mulai: formData.get('tanggal_mulai'),
-                tanggal_berakhir: formData.get('tanggal_berakhir')
-            };
-
-            const response = await fetch('/api/produk/diskon', {
+            await fetch('/api/tracking', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': DOM.meta.csrfToken
                 },
-                body: JSON.stringify(diskonData),
+                body: JSON.stringify(trackingData),
                 credentials: 'same-origin'
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.message || 'Gagal menyimpan diskon');
-            }
-
-            if (response.ok) {
-                const produk = state.allProducts.find(p => p.id == produkId);
-                await saveTracking({
-                    produk_id: produk.id,
-                    nama_produk: produk.nama_produk,
-                    aksi: 'diskon',
-                    keterangan: `Diskon ${formData.get('diskon')}% min. qty ${formData.get('jumlah_minimum')}` +
-                        (formData.get('is_tanpa_waktu') === 'on'
-                            ? ' (tanpa batas waktu)'
-                            : ` (${formData.get('tanggal_mulai') || '-'} s/d ${formData.get('tanggal_berakhir') || '-'})`)
-                });
-            }
-
-            await loadDiskonProduk(produkId);
-
-            await loadingSwal.close();
-
-            await Swal.fire({
-                title: 'Berhasil!',
-                text: `Diskon untuk ${produk.nama_produk} berhasil disimpan`,
-                icon: 'success',
-                confirmButtonText: 'OK'
-            });
-
-            // Reset form jika perlu
-            // form.reset();
-
-        } catch (error) {
-            await loadingSwal.close();
-            showAlert(`Gagal menyimpan diskon: ${error.message}`, 'danger');
-        }
-    }
-
-    async function hapusDiskon(diskonId, button) {
-        const { isConfirmed } = await Swal.fire({
-            title: 'Hapus Diskon?',
-            text: 'Diskon akan dihapus permanen!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Ya, Hapus!'
-        });
-
-        if (!isConfirmed) return;
-
-        const originalHtml = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        button.disabled = true;
-
-        try {
-            const response = await fetch(`/api/produk/diskon/${diskonId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': DOM.meta.csrfToken,
-                    'Accept': 'application/json'
-                },
-                credentials: 'same-origin'
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Gagal menghapus diskon');
-            }
-
-            const row = button.closest('tr');
-            const produkId = row.closest('.tab-pane').id.replace('produk-content-', '');
-            await loadDiskonProduk(produkId);
-
-            showAlert('Diskon berhasil dihapus!', 'success');
-        } catch (error) {
-            console.error('Error:', error);
-            showAlert(`Gagal menghapus diskon: ${error.message}`, 'danger');
-        } finally {
-            button.innerHTML = originalHtml;
-            button.disabled = false;
-        }
-    }
-
-    function handleDiscountToggle(e) {
-        if (!e.target.classList.contains('is_tanpa_waktu')) return;
-
-        const waktuContainer = e.target.closest('.tab-pane')
-                            .querySelector('.waktu-diskon-container');
-
-        if (waktuContainer) {
-            waktuContainer.style.display = e.target.checked ? 'none' : 'block';
-        }
-    }
-
-    function getDiskonStatusBadge(diskon) {
-        const now = new Date();
-
-        if (diskon.is_tanpa_waktu) return 'bg-success';
-
-        const start = new Date(diskon.tanggal_mulai);
-        const end = new Date(diskon.tanggal_berakhir);
-
-        if (now < start) return 'bg-warning text-dark';
-        if (now > end) return 'bg-secondary';
-        return 'bg-primary';
-    }
-
-    function getDiskonStatusText(diskon) {
-        const now = new Date();
-
-        if (diskon.is_tanpa_waktu) return 'Aktif';
-
-        const start = new Date(diskon.tanggal_mulai);
-        const end = new Date(diskon.tanggal_berakhir);
-
-        if (now < start) return 'Akan Datang';
-        if (now > end) return 'Kadaluwarsa';
-        return 'Aktif';
-    }
-
-    // TABLE INLINE EDIT
-    function enterEditMode() {
-        if (state.isEditMode) return;
-        state.isEditMode = true;
-        const banner = document.getElementById('editModeBanner');
-        banner.classList.remove('d-none');
-        document.querySelectorAll('.editable-cell').forEach(cell => cell.classList.add('edit-mode'));
-    }
-
-    function exitEditMode() {
-        if (!state.isEditMode) return;
-        state.isEditMode = false;
-        const banner = document.getElementById('editModeBanner');
-        banner.classList.add('d-none');
-        document.querySelectorAll('.editable-cell').forEach(cell => cell.classList.remove('edit-mode'));
-    }
-
-    function handleTableClick(e) {
-        if (!state.isEditMode) return;
-        if (e.target.classList.contains('row-checkbox') || e.target.tagName === 'INPUT') return;
-
-        const cell = e.target.closest('.editable-cell');
-        if (!cell) return;
-
-        makeCellEditable(cell);
-    }
-
-    function makeCellEditable(cell) {
-        const field = cell.getAttribute('data-field');
-        const rowId = cell.closest('tr').getAttribute('data-id');
-        let currentValue = cell.textContent.trim();
-
-        if (field === 'harga_beli' || field === 'harga_jual') {
-            currentValue = currentValue.replace('Rp ', '').replace(/\./g, '');
-        }
-
-        const inputType = getInputType(field);
-        cell.innerHTML = `<input type="${inputType}" class="form-control form-control-sm" value="${currentValue}">`;
-
-        const input = cell.querySelector('input');
-        input.focus();
-
-        let isSaving = false;
-        const saveChanges = () => {
-            if (isSaving) return;
-            isSaving = true;
-            handleSaveChanges(input, field, rowId, cell, currentValue).finally(() => {
-                isSaving = false;
-            });
-        };
-        input.addEventListener('blur', saveChanges);
-        input.addEventListener('keypress', (e) => e.key === 'Enter' && saveChanges());
-    }
-
-    async function handleSaveChanges(input, field, rowId, cell, originalValue) {
-        let newValue = input.value;
-        const row = cell.closest('tr');
-        const produk = state.allProducts.find(p => p.id == rowId);
-
-        if (field === 'stok') {
-            const satuanFilter = DOM.filters.unit.value.trim().toLowerCase();
-            const satuanProduk = (produk.satuan || '').trim().toLowerCase();
-
-            if (satuanFilter && satuanFilter !== satuanProduk) {
-                const konversiArr = state.konversiSatuan[produk.id] || [];
-                const konversiDasar = konversiArr.find(
-                    k => (k.satuan_dasar || '').trim().toLowerCase() === satuanFilter
-                );
-                if (konversiDasar && konversiDasar.konversi > 0) {
-                    newValue = Math.floor(parseInt(newValue) / konversiDasar.konversi);
-                } else {
-                    const konversiBesar = konversiArr.find(
-                        k => (k.satuan_besar || '').trim().toLowerCase() === satuanFilter
-                    );
-                    if (konversiBesar && konversiBesar.konversi > 0) {
-                        newValue = parseInt(newValue) * konversiBesar.konversi;
-                    }
-                }
-            }
-        }
-
-        try {
-            newValue = processFieldValue(field, newValue);
-
-            const response = await fetch(`/api/produk/${rowId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': DOM.meta.csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ [field]: newValue }),
-                credentials: 'same-origin'
-            });
-
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                throw new Error(`Expected JSON but got: ${text.substring(0, 100)}...`);
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'GAGAL MENYIMPAN PRODUK');
-            }
-
-            displayUpdatedValue(cell, field, newValue);
-
-            const updatedNamaProduk = data.data?.nama_produk ||
-                                    row.querySelector('[data-field="nama_produk"]').textContent.trim();
-
-            showAlert(`PRODUK ${updatedNamaProduk} BERHASIL DIPERBARUI`, 'success', 3000);
-
-            const produkLama = state.allProducts.find(p => p.id == rowId);
-            let perubahan = [];
-            let before = produkLama[field];
-            let after = newValue;
-
-            if (field === 'stok' || field === 'harga_beli' || field === 'harga_jual') {
-                before = parseInt(before) || 0;
-                after = parseInt(after) || 0;
-            } else {
-                before = before || '';
-                after = after || '';
-            }
-
-            if (before !== after) {
-                const keterangan = `Edit data - ${field.replace('_', ' ')}: ${before} → ${after}`;
-                await saveTracking({
-                    produk_id: rowId,
-                    nama_produk: updatedNamaProduk,
-                    aksi: 'edit',
-                    keterangan
-                });
-            }
-
-            loadData(state.currentSort.field, state.currentSort.direction);
-        } catch (error) {
-            console.error('Error:', error);
-            showAlert(
-                `GAGAL MEMPERBARUI PRODUK: ${error.message}`,
-                'danger',
-                5000
-            );
-            cell.textContent = originalValue;
-        }
-    }
-
-
-    // UTILITY
-    function showAlert(message, type = 'success', duration = 3000) {
-        Swal.fire({
-            icon: type,
-            text: message,
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: duration,
-            timerProgressBar: true,
-            didOpen: (toast) => {
-                toast.addEventListener('mouseenter', Swal.stopTimer)
-                toast.addEventListener('mouseleave', Swal.resumeTimer)
-            }
-        });
-    }
-
-    function processFieldValue(field, value) {
-        const processors = {
-            harga_beli: v => parseFloat(v.replace(/[^0-9]/g, '')) || 0,
-            harga_jual: v => parseFloat(v.replace(/[^0-9]/g, '')) || 0,
-            stok: v => parseInt(v) || 0
-        };
-        return processors[field] ? processors[field](value) : value;
-    }
-
-    function displayUpdatedValue(cell, field, value) {
-        const formatters = {
-            harga_beli: v => 'Rp ' + v.toLocaleString('id-ID'),
-            harga_jual: v => 'Rp ' + v.toLocaleString('id-ID')
-        };
-        cell.textContent = formatters[field] ? formatters[field](value) : value;
-    }
-
-    function formatCurrency(value) {
-        return value ? 'Rp ' + parseInt(value).toLocaleString('id-ID', { maximumFractionDigits: 0 }) : 'Rp 0';
-    }
-
-    function formatNumber(value) {
-        return value ? parseFloat(value).toLocaleString('id-ID') : '0';
-    }
-
-    function formatDate(dateString) {
-        if (!dateString || dateString === '-') return '-';
-
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('id-ID', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
             });
         } catch (e) {
-            console.error('Error formatting date:', e);
-            return dateString;
+            console.error('Gagal menyimpan tracking:', e);
         }
     }
 
-    function formatRelativeDate(dateString){
-        if(!dateString) return '-';
-
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffInSeconds = Math.floor((now - date) / 1000);
-
-        const intervals = {
-            tahun: 31536000,
-            bulan: 2592000,
-            minggu: 604800,
-            hari: 86400,
-            jam: 3600,
-            menit: 60
-        };
-
-        for (const [unit, seconds] of Object.entries(intervals)) {
-            const interval = Math.floor(diffInSeconds / seconds);
-            if (interval >= 1) {
-                return `${interval} ${unit} yang lalu`;
-            }
-        }
-
-        return 'Baru saja';
-    }
-
-    function getInputType(field) {
-        const inputTypes = {
-            stok: 'number'
-        };
-        return inputTypes[field] || 'text';
-    }
-
-    function updateTotals(data) {
-        state.totals = {
-            produk: data.length,
-            stok: calculateTotalStok(data),
-            modal: calculateTotalModal(data),
-            nilaiProduk: calculateNilaiTotalProduk(data)
-        };
-
-        updateDisplayedTotals();
-    }
-
-    function updateDisplayedTotals() {
-        document.getElementById('totalProdukCount').textContent = state.totals.produk;
-        document.getElementById('totalStokCount').textContent = state.totals.stok;
-        document.getElementById('totalModalCount').textContent = formatNumber(state.totals.modal);
-        document.getElementById('nilaiTotalProdukCount').textContent = formatNumber(state.totals.nilaiProduk);
-    }
-
-    function calculateTotalStok(data) {
-        const satuanFilterValue = DOM.filters.unit.value;
-        return data.reduce((sum, item) => sum + (parseInt(getStokBySatuan(item, satuanFilterValue)) || 0), 0);
-    }
-
-    function getStokBySatuan(produk, satuanValue) {
-        if (!satuanValue) return produk.stok;
-
-        const satuanProduk = (produk.satuan || '').trim().toLowerCase();
-        const satuanFilter = satuanValue.trim().toLowerCase();
-
-        if (satuanFilter === satuanProduk) {
-            return produk.stok;
-        }
-
-        const konversiArr = state.konversiSatuan[produk.id] || [];
-
-        const konversiBesar = konversiArr.find(
-            k => (k.satuan_besar || '').trim().toLowerCase() === satuanFilter
-        );
-        if (konversiBesar && konversiBesar.konversi > 0) {
-            return Math.floor(produk.stok / konversiBesar.konversi);
-        }
-
-        const konversiDasar = konversiArr.find(
-            k => (k.satuan_dasar || '').trim().toLowerCase() === satuanFilter
-        );
-        if (konversiDasar && konversiDasar.konversi > 0) {
-            return produk.stok * konversiDasar.konversi;
-        }
-
-        return 0;
-    }
-
-    function calculateTotalModal(data) {
-        return data.reduce((sum, item) => {
-            const hargaBeli = parseFloat(item.harga_beli) || 0;
-            const stok = parseInt(item.stok) || 0;
-            return sum + (hargaBeli * stok);
-        }, 0);
-    }
-
-    function calculateNilaiTotalProduk(data) {
-        return data.reduce((sum, item) => {
-            const hargaJual = parseFloat(item.harga_jual) || 0;
-            const stok = parseInt(item.stok) || 0;
-            return sum + (hargaJual * stok);
-        }, 0);
-    }
-
-    function exportToExcel() {
-        // Ambil data tabel yang sedang tampil
-        const rows = Array.from(document.querySelectorAll('#sortableTable thead tr, #sortableTable tbody tr'));
-        let csvContent = '';
-        rows.forEach(row => {
-            const cols = Array.from(row.querySelectorAll('th,td')).map(col => `"${col.innerText.replace(/"/g, '""')}"`);
-            csvContent += cols.join(',') + '\r\n';
-        });
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'data-produk.csv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    function exportToPdf() {
-        // Menggunakan html2pdf.js (pastikan sudah include di layout/app.blade.php)
-        const table = document.getElementById('sortableTable');
-        const opt = {
-            margin:       0.3,
-            filename:     'data-produk.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 },
-            jsPDF:        { unit: 'in', format: 'A4', orientation: 'landscape' }
-        };
-        html2pdf().from(table).set(opt).save();
-    }
-
-    // TRACKING
-    async function saveTracking(trackingData) {
-        await fetch('/api/tracking', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': DOM.meta.csrfToken
-            },
-            body: JSON.stringify(trackingData),
-            credentials: 'same-origin'
-        });
-    }
-
+    // Make functions globally accessible
+    window.tambahBarcode = tambahBarcode;
+    window.hapusBarcode = hapusBarcode;
+    window.tambahBarcodeBaru = tambahBarcodeBaru;
+    window.generateRandomBarcode = generateRandomBarcode;
+    window.tambahKonversiSatuan = tambahKonversiSatuan;
+    window.hapusKonversiSatuan = hapusKonversiSatuan;
+    window.tambahDiskonBaru = tambahDiskonBaru;
+    window.hapusDiskon = hapusDiskon;
+    window.toggleWaktuDiskon = toggleWaktuDiskon;
+    window.generateRandomBarcode = generateRandomBarcode;
+    // Initialize
     init();
 });

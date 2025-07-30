@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('nama_produk')->nullable();
             $table->string('aksi');
             $table->text('keterangan')->nullable();
+            $table->string('pengguna')->nullable();
             $table->timestamps();
         });
     }

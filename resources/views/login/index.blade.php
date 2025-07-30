@@ -21,10 +21,10 @@
                     <div id="loginError"></div>
                     <form id="loginForm" autocomplete="off">
                         <div class="mb-3">
-                            <label class="form-label">Email / Username</label>
+                            <label class="form-label">Nama</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                <input type="text" name="email" class="form-control" required autofocus>
+                                <input type="text" name="nama" class="form-control" required autofocus>
                             </div>
                         </div>
                         <div class="mb-3">

@@ -13,7 +13,8 @@ class Tracking extends Model
         'produk_id',
         'nama_produk',
         'aksi',
-        'keterangan'
+        'keterangan',
+        'pengguna'
     ];
 
     public function produk()

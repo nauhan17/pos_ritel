@@ -6,11 +6,162 @@ body {
     overflow-x: hidden;
 }
 
+.table-edit-mode .editable-cell.editing {
+    background-color: #fff3cd !important;
+    border: 2px dashed #ffc107;
+    cursor: text;
+}
+
+.editable-cell.saving {
+    background-color: #cff4fc !important;
+    position: relative;
+}
+
+.editable-cell.saved {
+    background-color: #d1e7dd !important;
+    transition: background-color 0.3s ease;
+}
+
+.editable-cell.error {
+    background-color: #f8d7da !important;
+    border-color: #dc3545;
+}
+
+.editable-cell.editing:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+/* Statistik cards */
+.card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+/* Loading state untuk statistik */
+.stat-loading {
+    opacity: 0.6;
+    position: relative;
+}
+
+/* Tambahkan di CSS file */
+[data-editing="true"] {
+    background-color: #fff3cd !important;
+    border: 2px dashed #ffc107;
+    cursor: text;
+}
+
+[data-state="saving"] {
+    background-color: #cff4fc !important;
+}
+
+[data-state="saved"] {
+    background-color: #d1e7dd !important;
+    transition: background-color 0.3s ease;
+}
+
+[data-state="error"] {
+    background-color: #f8d7da !important;
+    border-color: #dc3545;
+}
+
+[data-mode="bulk-edit"] {
+    border-left: 4px solid #17a2b8;
+}
+
+[data-margin-type="positive"] {
+    color: #198754 !important;
+}
+
+[data-margin-type="negative"] {
+    color: #dc3545 !important;
+}
+
+[data-margin-type="neutral"] {
+    color: #6c757d !important;
+}
+
+.stat-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #ccc;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Edit mode banner */
+#editModeBanner {
+    border-left: 4px solid #17a2b8;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .modal-body {
     display: flex;
     height: 70vh;
     overflow: hidden;
     padding: 0 0 0 0;
+}
+
+.bulk-edit-mode {
+    border-left: 4px solid #17a2b8;
+    padding-left: 15px;
+}
+
+.bulk-edit-mode .form-control {
+    border-color: #17a2b8;
+}
+
+.konversi-item, .barcode-item, .diskon-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+.konversi-item:hover, .barcode-item:hover, .diskon-item:hover {
+    background: #e9ecef;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.badge-sm {
+    font-size: 0.7em;
+}
+
+#bulk-edit-notice {
+    border-left: 4px solid #17a2b8;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #e7f3ff;
+    color: #0c63e4;
 }
 
 #baruProdukModal .modal-body {

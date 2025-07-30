@@ -84,16 +84,38 @@ class ProdukController extends Controller
 
     public function destroyMultiple(Request $request)
     {
+        // Validasi input
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|integer|exists:produks,id'
+        ]);
+
         if (empty($request->ids)) {
-            return response()->json(['error' => 'TIDAK ADA DATA YANG DIPILIH'], 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada data yang dipilih'
+            ], 400);
         }
 
         try {
-            Produk::whereIn('id', $request->ids)->delete();
-            return response()->json(['success' => 'DATA BERHASIL DIHAPUS']);
+            // Hapus produk, data terkait akan otomatis terhapus karena foreign key constraint
+            $deletedCount = Produk::whereIn('id', $request->ids)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$deletedCount} produk berhasil dihapus",
+                'deleted_count' => $deletedCount
+            ]);
 
         } catch (\Exception $e) {
-            return response()->json(['error' => 'GAGAL MENGHAPUS: ' . $e->getMessage()], 500);
+            Log::error('Error deleting products: ' . $e->getMessage(), [
+                'ids' => $request->ids
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus produk: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -149,20 +171,25 @@ class ProdukController extends Controller
     public function storeSatuan(Request $request){
         $validated = $request->validate([
             'produk_id' => 'required|exists:produks,id',
-            'satuan_dasar' => 'required|string|max:20',
-            'jumlah' => 'required|numeric|min:0.01',
             'satuan_besar' => [
                 'required',
                 'string',
                 'max:20',
                 Rule::unique('konversi_satuans')
                     ->where('produk_id', $request->produk_id)
-                    ->where('satuan_dasar', $request->satuan_dasar)
             ],
-            'konversi' => 'required|numeric|min:0.01'
+            'jumlah_satuan' => 'required|numeric|min:0.01',
+            'konversi_satuan' => 'required|numeric|min:0.01'
         ]);
 
-        $konversi = KonversiSatuan::create($validated);
+        $produk = Produk::findOrFail($validated['produk_id']);
+        $konversi = KonversiSatuan::create([
+            'produk_id' => $validated['produk_id'],
+            'satuan_dasar' => $produk->satuan ?? 'pcs',
+            'satuan_besar' => $validated['satuan_besar'],
+            'jumlah' => $validated['jumlah_satuan'],
+            'konversi' => $validated['konversi_satuan']
+        ]);
 
         return response()->json([
             'success' => true,

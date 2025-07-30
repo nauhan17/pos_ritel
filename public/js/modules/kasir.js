@@ -391,7 +391,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': DOM.meta.csrfToken
             },
-            body: JSON.stringify(trackingData),
+            body: JSON.stringify({
+                ...trackingData,
+                pengguna: window.currentUserName || 'Guest'
+            }),
             credentials: 'same-origin'
         });
     }

@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const email = this.email.value.trim();
+        const nama = this.nama.value.trim();
         const password = this.password.value.trim();
 
         fetch('/api/login', {
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'X-CSRF-TOKEN': DOM.meta.csrfToken,
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ nama, password }),
             credentials: 'same-origin'
         })
         .then(res => res.json())

@@ -13,7 +13,7 @@
                         <i class="fas fa-box fa-2x text-primary"></i>
                     </div>
                     <div>
-                        <div class="fs-3 fw-bold" id="totalProdukCount">0</div>
+                        <div class="fs-5 fw-bold" id="totalProdukCount">0</div>
                         <div class="text-muted">Total Produk</div>
                     </div>
                 </div>
@@ -26,7 +26,7 @@
                         <i class="fas fa-cubes fa-2x text-success"></i>
                     </div>
                     <div>
-                        <div class="fs-3 fw-bold" id="totalStokCount">0</div>
+                        <div class="fs-5 fw-bold" id="totalStokCount">0</div>
                         <div class="text-muted">Total Stok</div>
                     </div>
                 </div>
@@ -39,7 +39,8 @@
                         <i class="fas fa-money-bill-wave fa-2x text-warning"></i>
                     </div>
                     <div>
-                        <div class="fs-3 fw-bold" id="totalModalCount">0</div>
+                        <!-- SIZE fs-4 untuk konsistensi, nilai penuh tanpa singkatan -->
+                        <div class="fs-5 fw-bold" id="totalModalCount">Rp 0</div>
                         <div class="text-muted">Total Modal</div>
                     </div>
                 </div>
@@ -52,7 +53,8 @@
                         <i class="fas fa-chart-line fa-2x text-info"></i>
                     </div>
                     <div>
-                        <div class="fs-3 fw-bold" id="nilaiTotalProdukCount">0</div>
+                        <!-- SIZE fs-4 untuk konsistensi, nilai penuh tanpa singkatan -->
+                        <div class="fs-5 fw-bold" id="nilaiTotalProdukCount">Rp 0</div>
                         <div class="text-muted">Nilai Total Produk</div>
                     </div>
                 </div>
@@ -61,19 +63,14 @@
     </div>
     <!-- FILTER & AKSI -->
     <div class="row align-items-center mb-3">
-        <div class="col-md-3">
+        <div class="col-md-6">
             <select class="form-select" id="kategoriFilter" aria-label="Kategori Produk">
                 <option selected disabled>Kategori Produk</option>
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-6">
             <select class="form-select" id="supplierFilter" aria-label="Supplier">
                 <option selected disabled>Supplier</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <select class="form-select" id="satuanFilter" aria-label="Satuan">
-                <option value="">Semua Satuan</option>
             </select>
         </div>
     </div>
@@ -88,12 +85,6 @@
                     <span class="d-flex align-items-center justify-content-center gap-2">
                         <i class="fas fa-plus"></i>
                         <span>Baru</span>
-                    </span>
-                </button>
-                <button id="aturProdukBtn" class="btn btn-secondary" style="width: 120px;" data-bs-toggle="modal" data-bs-target="#aturProdukModal">
-                    <span class="d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-cog"></i>
-                        <span>Atur</span>
                     </span>
                 </button>
                 <button id="hapusProdukBtn" class="btn btn-danger" style="width: 120px;">
@@ -142,6 +133,9 @@
                     <th class="sortable" data-sort="supplier">
                         <i class="fas fa-truck me-1"></i> Supplier <i class="fas fa-sort sort-icon"></i>
                     </th>
+                    <th class="sortable" data-sort="satuan">
+                        <i class="fas fa-truck me-1"></i> Satuan <i class="fas fa-sort sort-icon"></i>
+                    </th>
                     <th class="sortable text-end" data-sort="stok" title="Jumlah PCS">
                         <i class="fas fa-cubes me-1"></i> Stok <i class="fas fa-sort sort-icon"></i>
                     </th>
@@ -162,15 +156,20 @@
         </table>
         <!-- Pagination Controls -->
         <div class="d-flex justify-content-between align-items-center mt-3">
-            <div>
-                <label class="me-2">Tampilkan</label>
-                <select id="produkPageSize" class="form-select d-inline-block" style="width: 80px;">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-                <span class="ms-2">data per halaman</span>
+            <div class="d-flex align-items-center gap-3">
+                <div>
+                    <label class="me-2">Tampilkan</label>
+                    <select id="produkPageSize" class="form-select d-inline-block" style="width: 80px;">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <span class="ms-2">data per halaman</span>
+                </div>
+                <div class="text-muted">
+                    <small id="paginationInfo">Menampilkan 0-0 dari 0 data</small>
+                </div>
             </div>
             <nav>
                 <ul class="pagination mb-0" id="produkPagination"></ul>
@@ -178,52 +177,292 @@
         </div>
     </div>
 
-    <!-- Modal Tambah Produk -->
     <div class="modal fade" id="baruProdukModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Tambah Produk Baru</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        Tambah Produk Baru
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <form id="formTambahProduk" class="add-produk-form w-100">
-                        <div class="row g-3">
-                            <div class="mb-3">
-                                <label class="form-label">Nama Produk</label>
-                                <input type="text" class="form-control" name="nama_produk" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Kategori</label>
-                                <input type="text" class="form-control" name="kategori" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Supplier</label>
-                                <input type="text" class="form-control" name="supplier" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Stok</label>
-                                <input type="number" class="form-control" name="stok" value="0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Satuan</label>
-                                <input type="text" class="form-control" name="satuan" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Harga Beli</label>
-                                <input type="text" class="form-control" name="harga_beli" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Harga Jual</label>
-                                <input type="text" class="form-control" name="harga_jual" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                            </div>
-                            <div class="mb-3">
-                                <button type="button" id="btnSimpanProdukBaru" class="btn btn-primary w-100">
-                                    Simpan Produk Baru
+
+                <div class="modal-body p-0">
+                    <!-- Tab Navigation -->
+                    <div class="bg-light border-bottom">
+                        <ul class="nav nav-tabs border-0 px-3" id="tambahProdukTabs">
+                            <li class="nav-item">
+                                <button class="nav-link active" id="step1-tab" data-bs-toggle="tab"
+                                        data-bs-target="#step1" data-step="1">
+                                    <i class="fas fa-info-circle me-2"></i>Data Dasar
                                 </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" id="step2-tab" data-bs-toggle="tab"
+                                        data-bs-target="#step2" data-step="2">
+                                    <i class="fas fa-balance-scale me-2"></i>Satuan
+                                    <span class="badge bg-secondary ms-1" style="display: none;">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" id="step3-tab" data-bs-toggle="tab"
+                                        data-bs-target="#step3" data-step="3">
+                                    <i class="fas fa-barcode me-2"></i>Barcode
+                                    <span class="badge bg-secondary ms-1" style="display: none;">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" id="step4-tab" data-bs-toggle="tab"
+                                        data-bs-target="#step4" data-step="4">
+                                    <i class="fas fa-percent me-2"></i>Diskon
+                                    <span class="badge bg-secondary ms-1" style="display: none;">0</span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="p-4">
+                        <form id="formTambahProduk" class="add-produk-form">
+                            <div class="tab-content" id="tambahProdukTabContent">
+
+                                <!-- STEP 1: DATA DASAR -->
+                                <div class="tab-pane fade show active" id="step1">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Nama Produk <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" name="nama_produk"
+                                                    placeholder="Masukkan nama produk" autocomplete="off" required>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Kategori</label>
+                                                <input type="text" class="form-control" name="kategori"
+                                                    placeholder="Masukkan kategori" autocomplete="off">
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Supplier</label>
+                                                <input type="text" class="form-control" name="supplier"
+                                                    placeholder="Masukkan nama supplier" autocomplete="off">
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Satuan <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" name="satuan"
+                                                    placeholder="pcs, kg, liter, dll" autocomplete="off" required>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Stok Awal</label>
+                                                <input type="number" class="form-control" name="stok"
+                                                    placeholder="0" min="0" autocomplete="off">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Harga Beli</label>
+                                                <input type="text" class="form-control currency-input" name="harga_beli"
+                                                    placeholder="0" autocomplete="off">
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Harga Jual</label>
+                                                <input type="text" class="form-control currency-input" name="harga_jual"
+                                                    placeholder="0" autocomplete="off">
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Margin</label>
+                                                <div class="form-control bg-light" id="marginPreview">0%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 2: KONVERSI SATUAN -->
+                                <div class="tab-pane fade" id="step2">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Konversi Satuan</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row align-items-end">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Jumlah</label>
+                                                    <input type="number" class="form-control" id="newJumlahSatuan"
+                                                        placeholder="1" min="1" step="0.01">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Satuan Besar</label>
+                                                    <input type="text" class="form-control" id="newSatuanBesar"
+                                                        placeholder="kardus, pak, dll">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">= <span id="konversiUnit">pcs</span></label>
+                                                    <input type="number" class="form-control" id="newKonversiSatuan"
+                                                        placeholder="12" min="1" step="0.01">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <button type="button" class="btn btn-primary" onclick="tambahKonversiSatuan()">
+                                                        <i class="fas fa-plus"></i> Tambah
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <h6>Daftar Konversi Satuan <span class="badge bg-primary" id="satuanCount">0</span></h6>
+                                        <div id="konversiSatuanList">
+                                            <!-- List konversi akan dirender di sini -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 3: BARCODE -->
+                                <div class="tab-pane fade" id="step3">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-barcode me-2"></i>Input Barcode</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row align-items-end">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Kode Barcode</label>
+                                                            <input type="text" class="form-control" id="newBarcodeInput"
+                                                                placeholder="Scan atau ketik barcode">
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" id="newBarcodeUtama">
+                                                                <label class="form-check-label" for="newBarcodeUtama">
+                                                                    Barcode Utama
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <button type="button" class="btn btn-primary me-2" onclick="tambahBarcodeBaru()">
+                                                                <i class="fas fa-plus"></i> Tambah
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-secondary" onclick="generateRandomBarcode()">
+                                                                <i class="fas fa-random"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mt-3">
+                                                <h6>Daftar Barcode <span class="badge bg-primary" id="barcodeCount">0</span></h6>
+                                                <div id="barcodeListContainer">
+                                                    <!-- List barcode akan dirender di sini -->
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0"><i class="fas fa-eye me-2"></i>Preview Barcode</h6>
+                                                </div>
+                                                <div class="card-body text-center">
+                                                    <div id="barcodePreviewContainer">
+                                                        <span class="text-muted">Preview akan muncul di sini</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 4: DISKON -->
+                                <div class="tab-pane fade" id="step4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-percent me-2"></i>Atur Diskon</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Minimum <span id="diskonUnit">pcs</span></label>
+                                                    <input type="number" class="form-control" id="newDiskonMinimum"
+                                                        placeholder="1" min="1">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Diskon (%)</label>
+                                                    <input type="number" class="form-control" id="newDiskonPersen"
+                                                        placeholder="10" min="0.01" max="100" step="0.01">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" id="diskonTanpaWaktu" checked>
+                                                        <label class="form-check-label" for="diskonTanpaWaktu">
+                                                            Diskon Permanen (Tanpa Batas Waktu)
+                                                        </label>
+                                                    </div>
+
+                                                    <div id="waktuDiskonContainer" style="display: none;">
+                                                        <div class="row">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label small">Tanggal Mulai</label>
+                                                                <input type="date" class="form-control form-control-sm" id="diskonMulai">
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label small">Tanggal Berakhir</label>
+                                                                <input type="date" class="form-control form-control-sm" id="diskonBerakhir">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="text-end mt-3">
+                                                <button type="button" class="btn btn-primary" onclick="tambahDiskonBaru()">
+                                                    <i class="fas fa-plus"></i> Tambah Diskon
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <h6>Daftar Diskon <span class="badge bg-primary" id="diskonCount">0</span></h6>
+                                        <div id="diskonListContainer">
+                                            <!-- List diskon akan dirender di sini -->
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <div class="d-flex justify-content-between w-100">
+                        <div></div> <!-- Empty div untuk spacing -->
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>Batal
+                            </button>
+                            <button type="button" class="btn btn-success" id="saveProductBtn">
+                                <i class="fas fa-save me-2"></i>Simpan Produk
+                            </button>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -238,56 +477,6 @@
                 </div>
                 <div class="modal-body" id="modalHapusProdukContent">
                     <!-- Konfirmasi hapus diisi JS -->
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- MODAL ATUR PRODUK -->
-    <div class="modal fade" id="aturProdukModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Atur Produk</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body d-flex" style="height: 70vh; overflow: hidden;">
-                    <!-- Sidebar Menu -->
-                    <div class="border-end pe-3" style="width:220px;">
-                        <ul class="nav flex-column nav-pills" id="produkSidebarMenu">
-                            <li class="nav-item mb-2">
-                                <button class="nav-link w-100 btn-sidebar-modal d-flex align-items-center gap-2" id="sidebarEditProdukBtn" data-menu="edit">
-                                    <i class="fas fa-edit sidebar-icon"></i>
-                                    <span>Data Produk</span>
-                                </button>
-                            </li>
-                            <li class="nav-item mb-2">
-                                <button class="nav-link w-100 btn-sidebar-modal d-flex align-items-center gap-2" id="sidebarSatuanBtn" data-menu="satuan">
-                                    <i class="fas fa-balance-scale sidebar-icon"></i>
-                                    <span>Satuan</span>
-                                </button>
-                            </li>
-                            <li class="nav-item mb-2">
-                                <button class="nav-link w-100 btn-sidebar-modal d-flex align-items-center gap-2" id="sidebarBarcodeBtn" data-menu="barcode">
-                                    <i class="fas fa-barcode sidebar-icon"></i>
-                                    <span>Barcode</span>
-                                </button>
-                            </li>
-                            <li class="nav-item mb-2">
-                                <button class="nav-link w-100 btn-sidebar-modal d-flex align-items-center gap-2" id="sidebarDiskonBtn" data-menu="diskon">
-                                    <i class="fas fa-percent sidebar-icon"></i>
-                                    <span>Diskon</span>
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-                    <!-- Konten Dinamis -->
-                    <div class="flex-grow-1 ps-3" id="produkSidebarContent" style="overflow-y:auto;">
-                        <!-- Konten dinamis dari JS -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" id="saveEditProdukBtn">Simpan Semua Perubahan</button>
                 </div>
             </div>
         </div>

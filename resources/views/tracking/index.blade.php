@@ -33,6 +33,9 @@
                                 <th class="sortable" data-sort="keterangan">
                                     <i class="fas fa-info-circle me-1"></i> Keterangan <i class="fas fa-sort sort-icon2"></i>
                                 </th>
+                                <th class="sortable" data-sort="pengguna">
+                                    <i class="fas fa-user me-1"></i> Pengguna <i class="fas fa-sort sort-icon2"></i>
+                                </th>
                                 <th class="sortable" data-sort="created_at">
                                     <i class="fas fa-clock me-1"></i> Waktu <i class="fas fa-sort sort-icon2"></i>
                                 </th>

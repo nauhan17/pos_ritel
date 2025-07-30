@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Tracking;
+use Illuminate\Support\Facades\Auth;
 
 class TrackingController extends Controller
 {
@@ -23,8 +24,10 @@ class TrackingController extends Controller
             'produk_id' => 'nullable|integer|exists:produks,id',
             'nama_produk' => 'nullable|string',
             'aksi' => 'required|string',
-            'keterangan' => 'nullable|string'
+            'keterangan' => 'nullable|string',
         ]);
+
+        $validated['pengguna'] = Auth::user() ? Auth::user()->nama : 'Guest';
 
         $tracking = Tracking::create($validated);
 
