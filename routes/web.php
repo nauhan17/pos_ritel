@@ -25,7 +25,8 @@ Route::post('/api/login', [LoginController::class, 'proses']);
 Route::resource('pengguna', PenggunaController::class)
     ->middleware([CekHakAkses::class . ':pengguna', 'auth']);
 
-Route::prefix('api')->middleware([CekHakAkses::class . ':pengguna', 'auth'])->group(function() {
+    // ->middleware([CekHakAkses::class . ':pengguna', 'auth'])
+Route::prefix('api')->middleware([CekHakAkses::class . ':dashboard', 'auth'])->group(function() {
     Route::get('/pengguna', [PenggunaController::class, 'endpoint']);
     Route::post('/pengguna', [PenggunaController::class, 'store']);
     Route::get('/pengguna/{id}', [PenggunaController::class, 'show']); // Kembali ke show
@@ -37,6 +38,12 @@ Route::prefix('api')->middleware([CekHakAkses::class . ':pengguna', 'auth'])->gr
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard.index')
     ->middleware([CekHakAkses::class . ':dashboard', 'auth']);
+
+Route::prefix('dashboard')->middleware([CekHakAkses::class . ':dashboard', 'auth'])->group(function () {
+    Route::get('/insight', [DashboardController::class, 'insight']);
+    Route::get('/penjualan', [DashboardController::class, 'penjualan']);
+    Route::get('/produk-hampir-habis', [DashboardController::class, 'produkHampirHabis']);
+});
 
 // Produk (akses:produk)
 Route::get('/produk', [ProdukController::class, 'index'])
@@ -82,6 +89,8 @@ Route::post('/api/transaksi', [TransaksiController::class, 'store'])
     ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 Route::get('/api/no-transaksi-baru', [TransaksiController::class, 'getNoTransaksiBaru'])
     ->middleware([CekHakAkses::class . ':kasir', 'auth']);
+Route::get('/api/transaksi/{id}', [TransaksiController::class, 'show'])
+    ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 
 // Pembelian (akses:pembelian)
 Route::get('/pembelian', [PembelianController::class, 'index'])
@@ -92,6 +101,10 @@ Route::get('/pembelian', [PembelianController::class, 'index'])
 Route::get('/aktivitas', [AktivitasController::class, 'index'])
     ->name('aktivitas.index')
     ->middleware([CekHakAkses::class . ':aktivitas', 'auth']);
+
+Route::get('/restok', [ProdukController::class, 'restokIndex']);
+Route::post('/restok', [ProdukController::class, 'restokStore']);
+Route::post('/retur', [ProdukController::class, 'returStore'])->middleware([CekHakAkses::class . ':produk', 'auth']);
 
 Route::post('/logout', function() {
     Auth::logout();

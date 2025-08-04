@@ -13,24 +13,18 @@ return new class extends Migration
     {
         Schema::create('trackings', function (Blueprint $table) {
             $table->id();
-
-            $table->unsignedBigInteger('produk_id')->nullable( );
-            $table->foreign('produk_id')
-                ->references('id')
-                ->on('produks')
-                ->onDelete('set null');
-
+            $table->unsignedBigInteger('transaksi_id')->nullable();
+            $table->unsignedBigInteger('produk_id')->nullable();
+            $table->foreign('produk_id')->references('id')->on('produks')->onDelete('set null');  // untuk aksi produk
             $table->string('nama_produk')->nullable();
-            $table->string('aksi');
+            $table->string('tipe');
             $table->text('keterangan')->nullable();
             $table->string('pengguna')->nullable();
+            $table->string('status')->nullable();
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('trackings');

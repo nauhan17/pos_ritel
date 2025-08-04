@@ -83,8 +83,20 @@
             <div class="btn-group ms-2">
                 <button id="baruProdukBtn" class="btn btn-primary" style="width: 120px;" data-bs-toggle="modal" data-bs-target="#baruProdukModal">
                     <span class="d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-plus"></i>
-                        <span>Baru</span>
+                        <i class="fas fa-cog"></i>
+                        <span>Atur</span>
+                    </span>
+                </button>
+                <button id="restokProdukBtn" class="btn btn-secondary" style="width: 120px;">
+                    <span class="d-flex align-items-center justify-content-center gap-2">
+                        <i class="fas fa-truck-loading"></i>
+                        <span>Restok</span>
+                    </span>
+                </button>
+                <button id="returProdukBtn" class="btn btn-warning" style="width: 120px;">
+                    <span class="d-flex align-items-center justify-content-center gap-2">
+                        <i class="fas fa-undo"></i>
+                        <span>Retur</span>
                     </span>
                 </button>
                 <button id="hapusProdukBtn" class="btn btn-danger" style="width: 120px;">
@@ -125,28 +137,60 @@
                         <input type="checkbox" id="selectAll">
                     </th>
                     <th class="sortable" data-sort="nama_produk">
-                        <i class="fas fa-box me-1"></i> Nama Produk <i class="fas fa-sort sort-icon"></i>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-box"></i>
+                            Nama Produk
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
                     <th class="sortable" data-sort="kategori">
-                        <i class="fas fa-tags me-1"></i> Kategori <i class="fas fa-sort sort-icon"></i>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-tags"></i>
+                            Kategori
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
                     <th class="sortable" data-sort="supplier">
-                        <i class="fas fa-truck me-1"></i> Supplier <i class="fas fa-sort sort-icon"></i>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-truck"></i>
+                            Supplier
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
                     <th class="sortable" data-sort="satuan">
-                        <i class="fas fa-truck me-1"></i> Satuan <i class="fas fa-sort sort-icon"></i>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-balance-scale"></i>
+                            Satuan
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
                     <th class="sortable text-end" data-sort="stok" title="Jumlah PCS">
-                        <i class="fas fa-cubes me-1"></i> Stok <i class="fas fa-sort sort-icon"></i>
+                        <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100">
+                            <i class="fas fa-cubes"></i>
+                            Stok
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
-                    <th class="sortable text-end" data-sort="harga_beli">
-                        <i class="fas fa-money-bill-wave me-1"></i> Harga Beli <i class="fas fa-sort sort-icon"></i>
+                    <th class="sortable text-end" data-sort="harga_beli" style="min-width: 130px;">
+                        <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100" style="white-space: nowrap;">
+                            <i class="fas fa-money-bill-wave"></i>
+                            Harga Beli
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
-                    <th class="sortable text-end" data-sort="harga_jual">
-                        <i class="fas fa-cash-register me-1"></i> Harga Jual <i class="fas fa-sort sort-icon"></i>
+                    <th class="sortable text-end" data-sort="harga_jual" style="min-width: 130px;">
+                        <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100" style="white-space: nowrap;">
+                            <i class="fas fa-cash-register"></i>
+                            Harga Jual
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
                     <th class="sortable" data-sort="timestamps">
-                        <i class="fas fa-clock me-1"></i> Updated <i class="fas fa-sort sort-icon"></i>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-clock"></i>
+                            Updated
+                            <i class="fas fa-sort sort-icon ms-1"></i>
+                        </span>
                     </th>
                 </tr>
             </thead>
@@ -173,7 +217,7 @@
             </div>
             <nav>
                 <ul class="pagination mb-0" id="produkPagination"></ul>
-            </nav>
+            </div>
         </div>
     </div>
 
@@ -464,6 +508,72 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="restokProdukModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title d-flex align-items-center gap-2">
+                        <i class="fas fa-truck-loading me-2"></i>
+                        Restok Produk
+                        <span id="restokProdukHeaderSelect"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="formRestokProduk">
+                    <div class="modal-body p-4">
+                        <div id="restokProdukList">
+                            <!-- Akan diisi oleh JS -->
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light justify-content-between align-items-center flex-wrap">
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-outline-primary fw-bold" tabindex="-1" style="pointer-events: none;">
+                                Total Harga Beli: <span id="totalHargaBeliRestok" class="fw-bold text-primary ms-2">Rp 0</span>
+                            </button>
+                            <span class="badge bg-secondary ms-2" id="jumlahProdukRestok">0</span>
+                            <span class="ms-1">produk</span>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>Batal
+                            </button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save me-2"></i>Simpan Restok
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="returProdukModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-undo me-2"></i>
+                        Retur Produk
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="formReturProduk">
+                    <div class="modal-body p-4">
+                        <div id="returProdukList"></div>
+                    </div>
+                    <div class="modal-footer bg-light justify-content-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Batal
+                        </button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save me-2"></i>Simpan Retur
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

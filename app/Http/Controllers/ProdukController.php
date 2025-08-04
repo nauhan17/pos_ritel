@@ -6,10 +6,14 @@ use App\Models\Produk;
 use App\Models\Diskon;
 use App\Models\KonversiSatuan;
 use App\Models\Barcode;
+use App\Models\Restok;
+use App\Models\DetailRestoks;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +47,29 @@ class ProdukController extends Controller
         $sort = in_array($sort, $validSorts) ? $sort : 'nama_produk';
 
         $produk = Produk::with('konversiSatuan', 'barcodes')->orderBy($sort, $order)->get();
+
+        foreach ($produk as $p) {
+            // Ambil dari detail restok terakhir (atau logika lain sesuai kebutuhan)
+            $lastRestok = \App\Models\DetailRestoks::where('produk_id', $p->id)
+                ->orderByDesc('created_at')
+                ->first();
+
+            // Jika ada, gunakan multi_harga dari restok terakhir
+            if ($lastRestok && $lastRestok->multi_harga) {
+                $p->multi_harga = is_array($lastRestok->multi_harga)
+                    ? $lastRestok->multi_harga
+                    : json_decode($lastRestok->multi_harga, true);
+            } else {
+                // Fallback: hanya satuan dasar
+                $p->multi_harga = [
+                    [
+                        'satuan' => $p->satuan,
+                        'harga_beli' => $p->harga_beli,
+                        'harga_jual' => $p->harga_jual
+                    ]
+                ];
+            }
+        }
 
         return response()->json($produk);
     }
@@ -84,10 +111,11 @@ class ProdukController extends Controller
 
     public function destroyMultiple(Request $request)
     {
-        // Validasi input
+        // Validasi input termasuk password
         $request->validate([
             'ids' => 'required|array|min:1',
-            'ids.*' => 'required|integer|exists:produks,id'
+            'ids.*' => 'required|integer|exists:produks,id',
+            'password' => 'required|string|min:1'
         ]);
 
         if (empty($request->ids)) {
@@ -97,9 +125,41 @@ class ProdukController extends Controller
             ], 400);
         }
 
+        // Validasi password user yang sedang login
+        $pengguna = session('pengguna');
+        if (!$pengguna) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session pengguna tidak ditemukan'
+            ], 401);
+        }
+
+        // Verifikasi password (sesuaikan dengan cara autentikasi Anda)
+        if (!Hash::check($request->password, $pengguna['password'] ?? '')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password tidak sesuai'
+            ], 401);
+        }
+
         try {
-            // Hapus produk, data terkait akan otomatis terhapus karena foreign key constraint
-            $deletedCount = Produk::whereIn('id', $request->ids)->delete();
+            DB::beginTransaction();
+
+            $produkIds = $request->ids;
+
+            // Hapus barcodes
+            Barcode::whereIn('produk_id', $produkIds)->delete();
+
+            // Hapus konversi satuan
+            KonversiSatuan::whereIn('produk_id', $produkIds)->delete();
+
+            // Hapus diskon
+            Diskon::whereIn('produk_id', $produkIds)->delete();
+
+            // Hapus produk
+            $deletedCount = Produk::whereIn('id', $produkIds)->delete();
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
@@ -108,6 +168,7 @@ class ProdukController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error deleting products: ' . $e->getMessage(), [
                 'ids' => $request->ids
             ]);
@@ -298,5 +359,130 @@ class ProdukController extends Controller
         return response()->json([
             'kode_barcode' => $barcode
         ]);
+    }
+
+    public function restokIndex()
+    {
+        $restoks = Restok::with('detailRestoks')->orderBy('tanggal', 'desc')->paginate(20);
+        return view('restok.index', compact('restoks'));
+    }
+
+    public function restokStore(Request $request)
+    {
+        $request->validate([
+            'tanggal' => 'required|date',
+            'user_id' => 'nullable|integer',
+            'jumlah_produk' => 'required|integer|min:1',
+            'total_harga_beli' => 'required|numeric|min:0',
+            'keterangan' => 'nullable|string',
+            'detail' => 'required|array|min:1',
+            'detail.*.produk_id' => 'required|integer|exists:produks,id',
+            'detail.*.nama_produk' => 'required|string',
+            'detail.*.supplier' => 'nullable|string',
+            'detail.*.jumlah' => 'required|integer|min:1',
+            'detail.*.satuan' => 'required|string',
+            'detail.*.harga_beli' => 'required|numeric|min:0',
+            'detail.*.subtotal' => 'required|numeric|min:0',
+            'detail.*.multi_harga' => 'nullable|array',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $restok = Restok::create([
+                'tanggal' => $request->tanggal,
+                'user_id' => $request->user_id,
+                'jumlah_produk' => $request->jumlah_produk,
+                'total_harga_beli' => $request->total_harga_beli,
+                'keterangan' => $request->keterangan,
+            ]);
+
+            foreach ($request->detail as $item) {
+                DetailRestoks::create([
+                    'restok_id' => $restok->id,
+                    'produk_id' => $item['produk_id'],
+                    'nama_produk' => $item['nama_produk'],
+                    'supplier' => $item['supplier'] ?? null,
+                    'jumlah' => $item['jumlah'],
+                    'satuan' => $item['satuan'],
+                    'harga_beli' => $item['harga_beli'],
+                    'subtotal' => $item['subtotal'],
+                    'multi_harga' => isset($item['multi_harga']) ? json_encode($item['multi_harga']) : null,
+                ]);
+
+                // Update stok produk
+                $produk = Produk::find($item['produk_id']);
+                if ($produk) {
+                    $jumlahTambah = $item['jumlah'];
+                    if ($item['satuan'] !== $produk->satuan) {
+                        $konversi = \App\Models\KonversiSatuan::where('produk_id', $produk->id)
+                            ->where('satuan_besar', $item['satuan'])
+                            ->value('konversi');
+                        if ($konversi && $konversi > 0) {
+                            $jumlahTambah = $item['jumlah'] * $konversi;
+                        }
+                    }
+                    $produk->increment('stok', $jumlahTambah); // <-- stok di DB selalu dalam satuan dasar (pcs)
+                }
+            }
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Restok berhasil disimpan', 'restok_id' => $restok->id]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Gagal menyimpan restok: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function restokShow($id)
+    {
+        $restok = Restok::with('detailRestoks')->findOrFail($id);
+        return response()->json($restok);
+    }
+
+    public function restokDestroy($id)
+    {
+        $restok = Restok::findOrFail($id);
+        $restok->delete();
+        return response()->json(['success' => true, 'message' => 'Restok berhasil dihapus']);
+    }
+
+    public function returStore(Request $request)
+    {
+        $request->validate([
+            'tanggal' => 'required|date',
+            'detail' => 'required|array|min:1',
+            'detail.*.produk_id' => 'required|integer|exists:produks,id',
+            'detail.*.nama_produk' => 'required|string',
+            'detail.*.satuan' => 'required|string',
+            'detail.*.jumlah' => 'required|integer|min:1',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            foreach ($request->detail as $item) {
+                $produk = Produk::find($item['produk_id']);
+                if ($produk) {
+                    $jumlahKurang = $item['jumlah'];
+                    // Jika satuan retur bukan satuan dasar, konversi ke satuan dasar
+                    if ($item['satuan'] !== $produk->satuan) {
+                        $konversi = \App\Models\KonversiSatuan::where('produk_id', $produk->id)
+                            ->where('satuan_besar', $item['satuan'])
+                            ->value('konversi');
+                        if ($konversi && $konversi > 0) {
+                            $jumlahKurang = $item['jumlah'] * $konversi;
+                        }
+                    }
+                    // Kurangi stok, pastikan tidak minus
+                    $produk->decrement('stok', min($jumlahKurang, $produk->stok));
+                }
+                // (Opsional) Simpan log retur ke tabel lain jika ingin histori retur
+            }
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Retur berhasil disimpan']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Gagal menyimpan retur: ' . $e->getMessage()], 500);
+        }
     }
 }

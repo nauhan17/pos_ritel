@@ -150,12 +150,21 @@ document.addEventListener('DOMContentLoaded', function () {
     async function submitTransaksi(status, hutangData) {
         const total = parseInt(DOM.totalBelanja.textContent.replace(/[^0-9]/g, '')) || 0;
         const bayar = parseInt(DOM.inputUangPembeli.value) || 0;
+        let hutang = 0, kembalian = 0;
+        if (status === 'hutang') {
+            hutang = total - bayar;
+            kembalian = 0;
+        } else {
+            hutang = 0;
+            kembalian = bayar - total;
+        }
         const transaksiData = {
             no_transaksi: (document.getElementById('noTransaksi')?.value) || '',
             tanggal: (document.getElementById('tanggalTransaksi')?.value) || new Date().toISOString().slice(0, 10),
             total: total,
             uang_customer: bayar,
-            kembalian: bayar - total,
+            kembalian: kembalian,
+            hutang: hutang,
             status: status,
             nama_pembeli: hutangData ? hutangData.nama_pembeli : null,
             no_hp: hutangData ? hutangData.no_hp : null,
@@ -185,15 +194,24 @@ document.addEventListener('DOMContentLoaded', function () {
             if (result.success) {
                 showAlert('Transaksi berhasil disimpan!', 'success');
 
-                // Tracking per produk
-                for (const item of transaksiData.items) {
-                    await saveTracking({
-                        aksi: status === 'lunas' ? 'lunas' : 'hutang',
-                        keterangan: `Nomor Transaksi: ${transaksiData.no_transaksi} - Produk: ${item.nama_produk} - Qty: ${item.qty} - Total: Rp${item.subtotal.toLocaleString('id-ID')}`,
-                        produk_id: item.produk_id,
-                        nama_produk: item.nama_produk
-                    });
+                // Tracking transaksi (hanya sekali per transaksi, bukan per produk)
+                let trackingStatus, trackingKeterangan;
+                if (status === 'lunas') {
+                    trackingStatus = 'Lunas';
+                    trackingKeterangan = `Transaksi #${transaksiData.no_transaksi} berhasil senilai Rp ${transaksiData.total.toLocaleString('id-ID')}`;
+                } else {
+                    trackingStatus = 'Hutang';
+                    trackingKeterangan = `Transaksi #${transaksiData.no_transaksi} dicatat sebagai hutang senilai Rp ${transaksiData.total.toLocaleString('id-ID')}`;
                 }
+
+                await saveTracking({
+                    tipe: 'Transaksi',
+                    keterangan: trackingKeterangan,
+                    status: trackingStatus === 'Lunas' ? 'Lunas' : 'Hutang',
+                    transaksi_id: result.id || null,
+                    produk_id: null,
+                    nama_produk: null
+                });
 
                 state.keranjang = [];
                 renderKeranjang();
@@ -244,7 +262,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const qty = parseInt(DOM.previewQty.value) || 1;
             const satuan = DOM.previewSatuan.value;
             const harga = getHargaBySatuan(produk, satuan);
-            const idx = state.keranjang.findIndex(item => item.barcode === produk.barcode && item.satuan === satuan);
+            // Gunakan produk.id sebagai pembeda utama
+            const idx = state.keranjang.findIndex(item => item.produk_id === produk.id && item.satuan === satuan);
             if (idx > -1) {
                 state.keranjang[idx].qty += qty;
             } else {

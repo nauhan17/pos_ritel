@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class TransaksiController extends Controller
 {
+
     public function store(Request $request)
     {
         $request->validate([
@@ -16,6 +17,7 @@ class TransaksiController extends Controller
             'total' => 'required|numeric',
             'uang_customer' => 'required|numeric',
             'kembalian' => 'required|numeric',
+            'hutang' => 'nullable|numeric',
             'status' => 'required|in:lunas,hutang',
             'nama_pembeli' => 'nullable|string|max:100',
             'no_hp' => 'nullable|string|max:20',
@@ -31,13 +33,16 @@ class TransaksiController extends Controller
 
         $no_transaksi = self::generateNoTransaksi();
 
-        DB::transaction(function () use ($request, $no_transaksi) {
+        $transaksi = null;
+
+        DB::transaction(function () use ($request, $no_transaksi, &$transaksi) {
             $transaksi = Transaksi::create([
                 'no_transaksi' => $no_transaksi,
                 'tanggal' => $request->tanggal,
                 'total' => $request->total,
                 'uang_customer' => $request->uang_customer,
                 'kembalian' => $request->kembalian,
+                'hutang' => $request->hutang, // pastikan ini diisi dari request
                 'status' => $request->status,
                 'nama_pembeli' => $request->nama_pembeli,
                 'no_hp' => $request->no_hp,
@@ -48,7 +53,18 @@ class TransaksiController extends Controller
             }
         });
 
-        return response()->json(['success' => true, 'no_transaksi' => $no_transaksi]);
+        if (!$transaksi) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaksi gagal disimpan'
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'no_transaksi' => $no_transaksi,
+            'id' => $transaksi->id,
+        ]);
     }
 
     public static function generateNoTransaksi()
@@ -79,5 +95,29 @@ class TransaksiController extends Controller
             $next = '001';
         }
         return response()->json(['no_transaksi' => $prefix . '-' . $next]);
+    }
+
+    public function show($id)
+    {
+        $transaksi = Transaksi::with('details')->findOrFail($id);
+        return response()->json([
+            'id' => $transaksi->id,
+            'no_transaksi' => $transaksi->no_transaksi,
+            'tanggal' => $transaksi->tanggal,
+            'total' => $transaksi->total,
+            'hutang' => $transaksi->hutang, // <-- pastikan ini ada!
+            'status' => $transaksi->status,
+            'nama_pembeli' => $transaksi->nama_pembeli,
+            'no_hp' => $transaksi->no_hp,
+            'jatuh_tempo' => $transaksi->jatuh_tempo,
+            'details' => $transaksi->details->map(function($d) {
+                return [
+                    'nama_produk' => $d->nama_produk,
+                    'qty' => $d->qty,
+                    'harga' => $d->harga,
+                    'subtotal' => $d->subtotal,
+                ];
+            })
+        ]);
     }
 }

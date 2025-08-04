@@ -18,7 +18,6 @@ class Produk extends Model
         'satuan',
         'harga_beli',
         'harga_jual',
-        'timestamps'
     ];
 
     public function konversiSatuan()

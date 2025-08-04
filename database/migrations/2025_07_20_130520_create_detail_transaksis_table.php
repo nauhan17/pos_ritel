@@ -11,7 +11,13 @@ return new class extends Migration
         Schema::create('detail_transaksis', function (Blueprint $table) {
             $table->id();
             $table->foreignId('transaksi_id')->constrained('transaksis')->onDelete('cascade');
-            $table->foreignId('produk_id')->constrained('produks');
+
+            $table->unsignedBigInteger('produk_id')->nullable();
+            $table->foreign('produk_id')
+                ->references('id')
+                ->on('produks')
+                ->onDelete('set null');
+
             $table->string('nama_produk');
             $table->integer('qty');
             $table->string('satuan');

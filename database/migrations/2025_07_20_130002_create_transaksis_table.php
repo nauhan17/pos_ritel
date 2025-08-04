@@ -15,6 +15,7 @@ return new class extends Migration
             $table->decimal('total', 18, 2);
             $table->decimal('uang_customer', 18, 2);
             $table->decimal('kembalian', 18, 2);
+            $table->decimal('hutang', 18, 2)->nullable();
             $table->string('status')->default('lunas');
             $table->string('nama_pembeli')->nullable();
             $table->string('no_hp')->nullable();
