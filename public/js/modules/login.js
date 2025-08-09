@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 pengguna = res.pengguna;
                 showAksesPengguna();
             } else {
-                document.getElementById('loginError').innerHTML = `<div class="alert alert-danger">${res.message || 'Login gagal!'}</div>`;
+                document.getElementById('loginError').innerHTML = `<div class="alert alert-danger">${res.message || 'Nama atau password salah'}</div>`;
             }
         })
         .catch(() => {
@@ -37,24 +37,22 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function showAksesPengguna() {
-        // Daftar prioritas hak akses dan route
         const aksesRoute = {
             dashboard: '/dashboard',
             kasir: '/kasir',
             produk: '/produk',
             tracking: '/tracking',
             pengguna: '/pengguna'
-            // tambahkan sesuai kebutuhan
         };
 
-        // akses bisa array atau string json
         let aksesArr = Array.isArray(pengguna.akses)
             ? pengguna.akses
             : JSON.parse(pengguna.akses || '[]');
 
-        // Cari hak akses pertama yang ada di aksesRoute
         for (const akses of Object.keys(aksesRoute)) {
             if (aksesArr.includes(akses)) {
+                // Simpan flag login sukses di localStorage
+                localStorage.setItem('loginSuccess', '1');
                 window.location.href = aksesRoute[akses];
                 return;
             }
@@ -62,4 +60,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.getElementById('loginError').innerHTML = '<div class="alert alert-danger">Anda tidak memiliki hak akses ke halaman manapun.</div>';
     }
+
+    // Tambahkan ini di setiap halaman utama (dashboard/kasir/produk/dll) JS:
+    document.addEventListener('DOMContentLoaded', function () {
+        if (localStorage.getItem('loginSuccess') === '1') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Login berhasil!',
+                showConfirmButton: false,
+                timer: 2000
+            });
+            localStorage.removeItem('loginSuccess');
+        }
+    });
 });

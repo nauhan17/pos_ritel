@@ -8,16 +8,21 @@ use Illuminate\Support\Facades\Auth;
 
 class TrackingController extends Controller
 {
+    // Menampilkan halaman utama tracking (log aktivitas) ke view tracking.index
     public function index(){
         return view('tracking.index');
     }
 
+    // Mengambil data tracking (log aktivitas) terbaru beserta relasi produk, hasilnya dipaginasi 50 data per halaman
     public function getTracking()
     {
         $trackings = Tracking::with('produk')->latest()->paginate(50);
         return response()->json($trackings);
     }
 
+    // Menyimpan data tracking/log aktivitas ke database
+    // Data yang divalidasi: transaksi_id, produk_id, nama_produk, tipe, keterangan, status
+    // Nama pengguna diambil dari Auth, jika tidak ada maka diisi 'Guest'
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -38,5 +43,4 @@ class TrackingController extends Controller
             'data' => $tracking
         ]);
     }
-
 }

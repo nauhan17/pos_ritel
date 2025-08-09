@@ -7,12 +7,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\TransaksiController;
-use App\Http\Controllers\PembelianController;
 use App\Http\Controllers\LoginController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\StokController;
 use App\Http\Controllers\KasirController;
-use App\Http\Controllers\AktivitasController;
 use App\Http\Controllers\PenggunaController;
 use Illuminate\Support\Facades\Route;
 
@@ -91,16 +87,8 @@ Route::get('/api/no-transaksi-baru', [TransaksiController::class, 'getNoTransaks
     ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 Route::get('/api/transaksi/{id}', [TransaksiController::class, 'show'])
     ->middleware([CekHakAkses::class . ':kasir', 'auth']);
-
-// Pembelian (akses:pembelian)
-Route::get('/pembelian', [PembelianController::class, 'index'])
-    ->name('pembelian.index')
-    ->middleware([CekHakAkses::class . ':pembelian', 'auth']);
-
-// Aktivitas (akses:aktivitas)
-Route::get('/aktivitas', [AktivitasController::class, 'index'])
-    ->name('aktivitas.index')
-    ->middleware([CekHakAkses::class . ':aktivitas', 'auth']);
+Route::post('/api/transaksi/{id}/lunas', [TransaksiController::class, 'lunas'])
+    ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 
 Route::get('/restok', [ProdukController::class, 'restokIndex']);
 Route::post('/restok', [ProdukController::class, 'restokStore']);

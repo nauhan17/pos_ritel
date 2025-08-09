@@ -10,18 +10,18 @@ use Illuminate\Support\Facades\Log;
 
 class PenggunaController extends Controller
 {
-    // Menampilkan halaman pengguna
+    // Menampilkan halaman utama pengguna (view)
     public function index()
     {
         return view('pengguna.index');
     }
 
-    // API endpoint untuk mengambil semua data pengguna
+    // Mengambil semua data pengguna (API endpoint)
     public function endpoint()
     {
         try {
             $pengguna = Pengguna::all();
-            // HAPUS manual decode - cast sudah handle otomatis
+            // Data dikembalikan dalam bentuk JSON
             return response()->json($pengguna);
         } catch (\Exception $e) {
             Log::error('Error endpoint pengguna: ' . $e->getMessage());
@@ -29,17 +29,19 @@ class PenggunaController extends Controller
         }
     }
 
-    // Menyimpan pengguna baru
+    // Menyimpan pengguna baru ke database
     public function store(Request $request)
     {
+        // Validasi input pengguna baru
         $validator = Validator::make($request->all(), [
             'nama' => 'required|string|max:255',
-            'email' => 'required|email|unique:penggunas,email', // PERBAIKI: penggunas
+            'email' => 'required|email|unique:penggunas,email',
             'password' => 'required|string|min:6',
             'no_hp' => 'required|string|max:20',
             'akses' => 'required|array|min:1',
             'akses.*' => 'in:dashboard,produk,kasir,tracking,pengguna'
         ], [
+            // Pesan validasi kustom
             'nama.required' => 'Nama wajib diisi',
             'email.required' => 'Email wajib diisi',
             'email.email' => 'Format email tidak valid',
@@ -51,6 +53,7 @@ class PenggunaController extends Controller
             'akses.min' => 'Pilih minimal satu hak akses'
         ]);
 
+        // Jika validasi gagal, kembalikan error
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validasi gagal',
@@ -59,13 +62,14 @@ class PenggunaController extends Controller
         }
 
         try {
+            // Simpan pengguna baru ke database
             $pengguna = Pengguna::create([
                 'nama' => $request->nama,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'no_hp' => $request->no_hp,
-                'akses' => $request->akses, // HAPUS json_encode - cast sudah handle
-                'is_active' => $request->has('is_active') ? 1 : 0
+                'akses' => $request->akses, // Cast otomatis array
+                'is_active' => $request->input('is_active', 0) ? 1 : 0
             ]);
 
             return response()->json([
@@ -80,11 +84,19 @@ class PenggunaController extends Controller
         }
     }
 
+    // Mengambil detail satu pengguna berdasarkan ID
     public function show($id)
     {
         try {
             $pengguna = Pengguna::findOrFail($id);
-            // HAPUS manual decode - cast sudah handle otomatis
+
+            // Pastikan akses selalu array (untuk frontend)
+            if (is_string($pengguna->akses)) {
+                $akses = json_decode($pengguna->akses, true);
+                $pengguna->akses = is_array($akses) ? $akses : [];
+            }
+
+            // Data dikembalikan dalam bentuk JSON
             return response()->json($pengguna);
         } catch (\Exception $e) {
             Log::error('Error show pengguna: ' . $e->getMessage());
@@ -92,9 +104,10 @@ class PenggunaController extends Controller
         }
     }
 
+    // Mengupdate data pengguna berdasarkan ID
     public function update(Request $request, $id)
     {
-        // Debug request
+        // Log data request untuk debugging
         Log::info('Update pengguna request:', [
             'id' => $id,
             'data' => $request->all()
@@ -106,9 +119,10 @@ class PenggunaController extends Controller
             return response()->json(['message' => 'Pengguna tidak ditemukan'], 404);
         }
 
+        // Validasi input update pengguna
         $validator = Validator::make($request->all(), [
             'nama' => 'required|string|max:255',
-            'email' => 'required|email|unique:penggunas,email,' . $id, // PERBAIKI: penggunas
+            'email' => 'required|email|unique:penggunas,email,' . $id,
             'password' => 'nullable|string|min:6',
             'no_hp' => 'required|string|max:20',
             'akses' => 'required|array|min:1',
@@ -124,6 +138,7 @@ class PenggunaController extends Controller
             'akses.min' => 'Pilih minimal satu hak akses'
         ]);
 
+        // Jika validasi gagal, kembalikan error
         if ($validator->fails()) {
             Log::error('Validasi gagal:', $validator->errors()->toArray());
             return response()->json([
@@ -133,11 +148,12 @@ class PenggunaController extends Controller
         }
 
         try {
+            // Siapkan data update
             $updateData = [
                 'nama' => $request->nama,
                 'email' => $request->email,
                 'no_hp' => $request->no_hp,
-                'akses' => $request->akses, // HAPUS json_encode - cast sudah handle
+                'akses' => $request->akses,
                 'is_active' => $request->has('is_active') ? 1 : 0
             ];
 
@@ -167,7 +183,7 @@ class PenggunaController extends Controller
         }
     }
 
-    // Hapus pengguna
+    // Menghapus pengguna berdasarkan ID
     public function destroy($id)
     {
         try {
@@ -177,7 +193,7 @@ class PenggunaController extends Controller
                 return response()->json(['message' => 'Pengguna tidak ditemukan'], 404);
             }
 
-            // Cek apakah pengguna yang akan dihapus adalah pengguna yang sedang login
+            // Cegah pengguna menghapus akun sendiri (yang sedang login)
             $penggunaLogin = session('pengguna');
             if ($penggunaLogin && $penggunaLogin['id'] == $id) {
                 return response()->json([

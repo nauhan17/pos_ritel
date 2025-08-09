@@ -1,172 +1,161 @@
-{{-- filepath: resources/views/pengguna/index.blade.php --}}
 @extends('layouts.app')
 
-@section('title', 'Daftar Pengguna')
+@section('title', 'Data Pengguna')
 
 @section('content')
-    <div class="container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="mb-0">Kelola Data Pengguna</h3>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambahPengguna">
-                <i class="fas fa-user-plus"></i> Register Pengguna
-            </button>
-        </div>
-        <div class="card shadow-sm rounded-4">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>#</th>
-                                <th>Nama</th>
-                                <th>No. HP</th>
-                                <th>Hak Akses</th>
-                                <th>Status</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="penggunaTableBody">
-                            <!-- Data pengguna akan diisi oleh JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">Kelola Data Pengguna</h3>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambahPengguna">
+            <i class="fas fa-user-plus"></i> Register Pengguna
+        </button>
     </div>
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered table-hover align-middle rounded" id="penggunaTable">
+            <thead class="table-light align-middle fw-semibold border-bottom">
+                <tr>
+                    <th width="40" class="text-center">
+                        <input type="checkbox" id="selectAllPengguna">
+                    </th>
+                    <th>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-user"></i>
+                            Nama
+                        </span>
+                    </th>
+                    <th>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-phone"></i>
+                            No. HP
+                        </span>
+                    </th>
+                    <th>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-key"></i>
+                            Hak Akses
+                        </span>
+                    </th>
+                    <th>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-toggle-on"></i>
+                            Status
+                        </span>
+                    </th>
+                    <th class="text-center" width="120">
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-cogs"></i>
+                            Aksi
+                        </span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="penggunaTableBody">
+                {{-- Data pengguna diisi oleh JS --}}
+            </tbody>
+        </table>
+    </div>
+</div>
 
-    <!-- Modal Register Pengguna -->
-    <div class="modal fade" id="modalTambahPengguna" tabindex="-1" aria-labelledby="modalTambahLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <form method="POST" autocomplete="off" id="formTambahPengguna">
-                @csrf
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalTambahLabel">Register Pengguna Baru</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+<!-- Modal Tambah Pengguna -->
+<div class="modal fade" id="modalTambahPengguna" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formTambahPengguna" autocomplete="off">
+                <div class="modal-header">
+                    <h5 class="modal-title">Register Pengguna</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nama" class="form-label">Nama</label>
+                        <input type="text" name="nama" class="form-control" required>
                     </div>
-                    <div class="modal-body" style="max-height:70vh; overflow-y:auto;">
-                        <div class="row g-3">
-                            <div class="mb-3">
-                                <label class="form-label">Nama</label>
-                                <input type="text" name="nama" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" name="email" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">No. HP</label>
-                                <input type="text" name="no_hp" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Hak Akses Per Halaman</label>
-                                <div class="d-flex flex-wrap gap-2">
-                                    @foreach (['dashboard', 'produk', 'kasir', 'tracking', 'pengguna'] as $akses)
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="akses[]"
-                                                value="{{ $akses }}" id="akses{{ ucfirst($akses) }}">
-                                            <label class="form-check-label"
-                                                for="akses{{ ucfirst($akses) }}">{{ ucfirst($akses) }}</label>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Status</label>
-                                <select name="is_active" class="form-select" required>
-                                    <option value="1">Aktif</option>
-                                    <option value="0">Nonaktif</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" required
-                                    autocomplete="new-password">
-                            </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="no_hp" class="form-label">No HP</label>
+                        <input type="text" name="no_hp" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hak Akses</label>
+                        <div>
+                            <input type="checkbox" name="akses[]" value="dashboard"> Dashboard
+                            <input type="checkbox" name="akses[]" value="produk"> Produk
+                            <input type="checkbox" name="akses[]" value="kasir"> Kasir
+                            <input type="checkbox" name="akses[]" value="tracking"> Tracking
+                            <input type="checkbox" name="akses[]" value="pengguna"> Pengguna
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">Register</button>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="is_active" class="form-check-input" id="isActiveTambah" checked>
+                        <label class="form-check-label" for="isActiveTambah">Aktif</label>
                     </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Simpan</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                 </div>
             </form>
         </div>
     </div>
-    <!-- Modal Edit Pengguna -->
-    <div class="modal fade" id="modalEditPengguna" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
+</div>
+<div class="modal fade" id="modalEditPengguna" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formEditPengguna" autocomplete="off">
+                <input type="hidden" id="editPenggunaId">
                 <div class="modal-header">
                     <h5 class="modal-title">Edit Pengguna</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" id="formEditPengguna">
-                    <div class="modal-body">
-                        <div class="row g">
-                            <input type="hidden" id="editPenggunaId" name="id">
-
-                            <div class="mb-3">
-                                <label for="editNama" class="form-label">Nama</label>
-                                <input type="text" class="form-control" id="editNama" name="nama" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="editEmail" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="editEmail" name="email" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="editNoHp" class="form-label">No HP</label>
-                                <input type="text" class="form-control" id="editNoHp" name="no_hp" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="editPassword" class="form-label">Password Baru</label>
-                                <input type="password" class="form-control" id="editPassword" name="password" autocomplete="new-password">
-                                <small class="text-muted">Kosongkan jika tidak ingin mengubah password</small>
-                            </div>
-                            <!-- Perbaiki checkbox style agar konsisten -->
-                            <div class="mb-3">
-                                <label class="form-label">Hak Akses</label>
-                                <div class="d-flex flex-wrap gap-2">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="akses[]" value="dashboard" id="editDashboard">
-                                        <label class="form-check-label" for="editDashboard">Dashboard</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="akses[]" value="produk" id="editProduk">
-                                        <label class="form-check-label" for="editProduk">Produk</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="akses[]" value="kasir" id="editKasir">
-                                        <label class="form-check-label" for="editKasir">Kasir</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="akses[]" value="tracking" id="editTracking">
-                                        <label class="form-check-label" for="editTracking">Tracking</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="akses[]" value="pengguna" id="editPengguna">
-                                        <label class="form-check-label" for="editPengguna">Pengguna</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="editIsActive" name="is_active" value="1">
-                                    <label class="form-check-label" for="editIsActive">Status Aktif</label>
-                                </div>
-                            </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editNama" class="form-label">Nama</label>
+                        <input type="text" id="editNama" name="nama" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email</label>
+                        <input type="email" id="editEmail" name="email" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">Password (kosongkan jika tidak diubah)</label>
+                        <input type="password" id="editPassword" name="password" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editNoHp" class="form-label">No HP</label>
+                        <input type="text" id="editNoHp" name="no_hp" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hak Akses</label>
+                        <div>
+                            <input type="checkbox" name="akses[]" value="dashboard"> Dashboard
+                            <input type="checkbox" name="akses[]" value="produk"> Produk
+                            <input type="checkbox" name="akses[]" value="kasir"> Kasir
+                            <input type="checkbox" name="akses[]" value="tracking"> Tracking
+                            <input type="checkbox" name="akses[]" value="pengguna"> Pengguna
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">Update</button>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" id="editIsActive" name="is_active" class="form-check-input">
+                        <label class="form-check-label" for="editIsActive">Aktif</label>
                     </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Simpan</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                </div>
+            </form>
         </div>
     </div>
-    @push('scripts')
-        <script src="{{ asset('js/modules/pengguna.js') }}"></script>
-    @endpush
+</div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/modules/pengguna.js') }}"></script>
+@endpush

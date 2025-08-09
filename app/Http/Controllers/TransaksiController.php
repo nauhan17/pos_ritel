@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 
 class TransaksiController extends Controller
 {
-
+    // Menyimpan transaksi baru ke database beserta detail itemnya.
+    // Melakukan validasi data, generate nomor transaksi otomatis, dan simpan transaksi serta detailnya dalam transaksi database.
     public function store(Request $request)
     {
         $request->validate([
@@ -35,6 +36,7 @@ class TransaksiController extends Controller
 
         $transaksi = null;
 
+        // Simpan transaksi dan detailnya dalam satu transaksi database (atomic)
         DB::transaction(function () use ($request, $no_transaksi, &$transaksi) {
             $transaksi = Transaksi::create([
                 'no_transaksi' => $no_transaksi,
@@ -42,7 +44,7 @@ class TransaksiController extends Controller
                 'total' => $request->total,
                 'uang_customer' => $request->uang_customer,
                 'kembalian' => $request->kembalian,
-                'hutang' => $request->hutang, // pastikan ini diisi dari request
+                'hutang' => $request->hutang,
                 'status' => $request->status,
                 'nama_pembeli' => $request->nama_pembeli,
                 'no_hp' => $request->no_hp,
@@ -67,6 +69,7 @@ class TransaksiController extends Controller
         ]);
     }
 
+    // Membuat nomor transaksi baru secara otomatis berdasarkan tanggal dan urutan terakhir hari ini.
     public static function generateNoTransaksi()
     {
         $prefix = 'TRX' . date('Ymd');
@@ -82,6 +85,7 @@ class TransaksiController extends Controller
         return $prefix . '-' . $next;
     }
 
+    // Mengambil nomor transaksi baru (tanpa menyimpan transaksi), biasanya untuk kebutuhan frontend.
     public function getNoTransaksiBaru()
     {
         $prefix = 'TRX' . date('Ymd');
@@ -97,6 +101,8 @@ class TransaksiController extends Controller
         return response()->json(['no_transaksi' => $prefix . '-' . $next]);
     }
 
+    // Mengambil detail transaksi berdasarkan ID, termasuk detail itemnya.
+    // Data dikembalikan dalam bentuk JSON, cocok untuk kebutuhan API/frontend.
     public function show($id)
     {
         $transaksi = Transaksi::with('details')->findOrFail($id);
@@ -105,7 +111,7 @@ class TransaksiController extends Controller
             'no_transaksi' => $transaksi->no_transaksi,
             'tanggal' => $transaksi->tanggal,
             'total' => $transaksi->total,
-            'hutang' => $transaksi->hutang, // <-- pastikan ini ada!
+            'hutang' => $transaksi->hutang,
             'status' => $transaksi->status,
             'nama_pembeli' => $transaksi->nama_pembeli,
             'no_hp' => $transaksi->no_hp,
@@ -119,5 +125,21 @@ class TransaksiController extends Controller
                 ];
             })
         ]);
+    }
+
+    // Melunasi transaksi yang statusnya hutang.
+    public function lunas($id)
+    {
+        try {
+            $transaksi = Transaksi::findOrFail($id);
+            if ($transaksi->status !== 'hutang') {
+                return response()->json(['success' => false, 'message' => 'Transaksi bukan hutang'], 400);
+            }
+            $transaksi->status = 'lunas';
+            $transaksi->save();
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Gagal melunasi hutang'], 500);
+        }
     }
 }

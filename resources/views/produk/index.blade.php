@@ -3,224 +3,246 @@
 @section('title', 'Data Produk')
 
 @section('content')
-<div class="container-fluid py-4">
-    <!-- STATISTIK -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="me-3">
-                        <i class="fas fa-box fa-2x text-primary"></i>
+    <div class="container-fluid py-4">
+        <!-- STATISTIK -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-box fa-2x text-primary"></i>
+                        </div>
+                        <div>
+                            <div class="fs-5 fw-bold" id="totalProdukCount">0</div>
+                            <div class="text-muted">Total Produk</div>
+                        </div>
                     </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-cubes fa-2x text-success"></i>
+                        </div>
+                        <div>
+                            <div class="fs-5 fw-bold" id="totalStokCount">0</div>
+                            <div class="text-muted">Total Stok</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-money-bill-wave fa-2x text-warning"></i>
+                        </div>
+                        <div>
+                            <!-- SIZE fs-4 untuk konsistensi, nilai penuh tanpa singkatan -->
+                            <div class="fs-5 fw-bold" id="totalModalCount">Rp 0</div>
+                            <div class="text-muted">Total Modal</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-chart-line fa-2x text-info"></i>
+                        </div>
+                        <div>
+                            <!-- SIZE fs-4 untuk konsistensi, nilai penuh tanpa singkatan -->
+                            <div class="fs-5 fw-bold" id="nilaiTotalProdukCount">Rp 0</div>
+                            <div class="text-muted">Nilai Total Produk</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTER & AKSI -->
+        <div class="row align-items-center mb-3">
+            <div class="col-md-6">
+                <select class="form-select" id="kategoriFilter" aria-label="Kategori Produk">
+                    <option selected disabled>Kategori Produk</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <select class="form-select" id="supplierFilter" aria-label="Supplier">
+                    <option selected disabled>Supplier</option>
+                </select>
+            </div>
+        </div>
+        <div class="row g-3 mb-1">
+            <div class="col-md-4 d-flex align-items-center gap-2">
+                <button id="editTableBtn"
+                    class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center"
+                    style="width: 40px; height: 40px;" data-bs-toggle="modal" data-bs-target="#editTableModal"
+                    title="Edit Mode">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <div class="btn-group ms-2">
+                    <button id="baruProdukBtn" class="btn btn-primary" style="width: 120px;" data-bs-toggle="modal"
+                        data-bs-target="#baruProdukModal">
+                        <span class="d-flex align-items-center justify-content-center gap-2">
+                            <i class="fas fa-cog"></i>
+                            <span>Atur</span>
+                        </span>
+                    </button>
+                    <button id="restokProdukBtn" class="btn btn-secondary" style="width: 120px;">
+                        <span class="d-flex align-items-center justify-content-center gap-2">
+                            <i class="fas fa-truck-loading"></i>
+                            <span>Restok</span>
+                        </span>
+                    </button>
+                    <button id="returProdukBtn" class="btn btn-warning" style="width: 120px;">
+                        <span class="d-flex align-items-center justify-content-center gap-2">
+                            <i class="fas fa-undo"></i>
+                            <span>Retur</span>
+                        </span>
+                    </button>
+                    <button id="hapusProdukBtn" class="btn btn-danger" style="width: 120px;">
+                        <span class="d-flex align-items-center justify-content-center gap-2">
+                            <i class="fas fa-trash"></i>
+                            <span>Hapus</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group">
+                    <button class="btn btn-success" id="exportExcelBtn" data-bs-toggle="tooltip" title="Export ke Excel">
+                        <i class="fas fa-file-excel"></i>
+                    </button>
+                    <button class="btn btn-danger" id="exportPdfBtn" data-bs-toggle="tooltip" title="Export ke PDF">
+                        <i class="fas fa-file-pdf"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="input-group" style="max-width: 320px; float: right;">
+                    <input type="text" id="searchProdukInput" class="form-control"
+                        placeholder="Cari produk, kategori, supplier..." aria-label="Cari produk">
+                    <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABEL PRODUK -->
+        <div id="editModeBanner" class="alert alert-info py-2 mb-2 d-none">
+            <i class="fas fa-edit"></i> Edit Mode Aktif — Klik sel untuk mengubah data.
+            <button class="btn btn-sm btn-outline-danger float-end" id="exitEditModeBtn">Keluar Edit Mode</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered table-hover align-middle" id="sortableTable">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40px" class="text-center">
+                            <input type="checkbox" id="selectAll">
+                        </th>
+                        <th class="sortable" data-sort="nama_produk">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="fas fa-box"></i>
+                                Produk
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="fas fa-barcode"></i>
+                                Barcode
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="kategori">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="fas fa-tags"></i>
+                                Kategori
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="supplier">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="fas fa-truck"></i>
+                                Supplier
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="satuan">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="fas fa-balance-scale"></i>
+                                Satuan
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                        <th class="sortable text-end" data-sort="stok" title="Jumlah PCS">
+                            <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100">
+                                <i class="fas fa-cubes"></i>
+                                Stok
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                        <th class="sortable text-end" data-sort="harga_beli" style="min-width: 130px;">
+                            <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100"
+                                style="white-space: nowrap;">
+                                <i class="fas fa-money-bill-wave"></i>
+                                Harga Beli
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                        <th class="sortable text-end" data-sort="harga_jual" style="min-width: 130px;">
+                            <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100"
+                                style="white-space: nowrap;">
+                                <i class="fas fa-cash-register"></i>
+                                Harga Jual
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="fas fa-percent"></i>
+                                Diskon
+                            </span>
+                        </th>
+                        <th class="sortable" data-sort="timestamps">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="fas fa-clock"></i>
+                                Updated
+                                <i class="fas fa-sort sort-icon ms-1"></i>
+                            </span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    {{-- Data produk akan dimuat di sini --}}
+                </tbody>
+            </table>
+
+            <!-- Pagination Controls -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="d-flex align-items-center gap-3">
                     <div>
-                        <div class="fs-5 fw-bold" id="totalProdukCount">0</div>
-                        <div class="text-muted">Total Produk</div>
+                        <label class="me-2">Tampilkan</label>
+                        <select id="produkPageSize" class="form-select d-inline-block" style="width: 80px;">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <span class="ms-2">data per halaman</span>
+                    </div>
+                    <div class="text-muted">
+                        <small id="paginationInfo">Menampilkan 0-0 dari 0 data</small>
                     </div>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="me-3">
-                        <i class="fas fa-cubes fa-2x text-success"></i>
-                    </div>
-                    <div>
-                        <div class="fs-5 fw-bold" id="totalStokCount">0</div>
-                        <div class="text-muted">Total Stok</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="me-3">
-                        <i class="fas fa-money-bill-wave fa-2x text-warning"></i>
-                    </div>
-                    <div>
-                        <!-- SIZE fs-4 untuk konsistensi, nilai penuh tanpa singkatan -->
-                        <div class="fs-5 fw-bold" id="totalModalCount">Rp 0</div>
-                        <div class="text-muted">Total Modal</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="me-3">
-                        <i class="fas fa-chart-line fa-2x text-info"></i>
-                    </div>
-                    <div>
-                        <!-- SIZE fs-4 untuk konsistensi, nilai penuh tanpa singkatan -->
-                        <div class="fs-5 fw-bold" id="nilaiTotalProdukCount">Rp 0</div>
-                        <div class="text-muted">Nilai Total Produk</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- FILTER & AKSI -->
-    <div class="row align-items-center mb-3">
-        <div class="col-md-6">
-            <select class="form-select" id="kategoriFilter" aria-label="Kategori Produk">
-                <option selected disabled>Kategori Produk</option>
-            </select>
-        </div>
-        <div class="col-md-6">
-            <select class="form-select" id="supplierFilter" aria-label="Supplier">
-                <option selected disabled>Supplier</option>
-            </select>
-        </div>
-    </div>
-    <div class="row g-3 mb-1">
-        <div class="col-md-4 d-flex align-items-center gap-2">
-            <button id="editTableBtn" class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center"
-                style="width: 40px; height: 40px;" data-bs-toggle="modal" data-bs-target="#editTableModal" title="Edit Mode">
-                <i class="fas fa-pencil-alt"></i>
-            </button>
-            <div class="btn-group ms-2">
-                <button id="baruProdukBtn" class="btn btn-primary" style="width: 120px;" data-bs-toggle="modal" data-bs-target="#baruProdukModal">
-                    <span class="d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-cog"></i>
-                        <span>Atur</span>
-                    </span>
-                </button>
-                <button id="restokProdukBtn" class="btn btn-secondary" style="width: 120px;">
-                    <span class="d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-truck-loading"></i>
-                        <span>Restok</span>
-                    </span>
-                </button>
-                <button id="returProdukBtn" class="btn btn-warning" style="width: 120px;">
-                    <span class="d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-undo"></i>
-                        <span>Retur</span>
-                    </span>
-                </button>
-                <button id="hapusProdukBtn" class="btn btn-danger" style="width: 120px;">
-                    <span class="d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-trash"></i>
-                        <span>Hapus</span>
-                    </span>
-                </button>
-            </div>
-        </div>
-        <div class="col-md-4 text-end">
-            <div class="btn-group">
-                <button class="btn btn-success" id="exportExcelBtn" data-bs-toggle="tooltip" title="Export ke Excel">
-                    <i class="fas fa-file-excel"></i>
-                </button>
-                <button class="btn btn-danger" id="exportPdfBtn" data-bs-toggle="tooltip" title="Export ke PDF">
-                    <i class="fas fa-file-pdf"></i>
-                </button>
-            </div>
-        </div>
-        <div class="col-md-4 text-end">
-            <div class="input-group" style="max-width: 320px; float: right;">
-                <input type="text" id="searchProdukInput" class="form-control" placeholder="Cari produk, kategori, supplier..." aria-label="Cari produk">
-                <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
-            </div>
-        </div>
-    </div>
-    <!-- TABEL PRODUK -->
-    <div id="editModeBanner" class="alert alert-info py-2 mb-2 d-none">
-        <i class="fas fa-edit"></i> Edit Mode Aktif — Klik sel untuk mengubah data.
-        <button class="btn btn-sm btn-outline-danger float-end" id="exitEditModeBtn">Keluar Edit Mode</button>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered table-hover align-middle" id="sortableTable">
-            <thead class="table-light">
-                <tr>
-                    <th width="40px" class="text-center">
-                        <input type="checkbox" id="selectAll">
-                    </th>
-                    <th class="sortable" data-sort="nama_produk">
-                        <span class="d-inline-flex align-items-center gap-1">
-                            <i class="fas fa-box"></i>
-                            Nama Produk
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                    <th class="sortable" data-sort="kategori">
-                        <span class="d-inline-flex align-items-center gap-1">
-                            <i class="fas fa-tags"></i>
-                            Kategori
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                    <th class="sortable" data-sort="supplier">
-                        <span class="d-inline-flex align-items-center gap-1">
-                            <i class="fas fa-truck"></i>
-                            Supplier
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                    <th class="sortable" data-sort="satuan">
-                        <span class="d-inline-flex align-items-center gap-1">
-                            <i class="fas fa-balance-scale"></i>
-                            Satuan
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                    <th class="sortable text-end" data-sort="stok" title="Jumlah PCS">
-                        <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100">
-                            <i class="fas fa-cubes"></i>
-                            Stok
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                    <th class="sortable text-end" data-sort="harga_beli" style="min-width: 130px;">
-                        <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100" style="white-space: nowrap;">
-                            <i class="fas fa-money-bill-wave"></i>
-                            Harga Beli
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                    <th class="sortable text-end" data-sort="harga_jual" style="min-width: 130px;">
-                        <span class="d-inline-flex align-items-center gap-1 justify-content-end w-100" style="white-space: nowrap;">
-                            <i class="fas fa-cash-register"></i>
-                            Harga Jual
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                    <th class="sortable" data-sort="timestamps">
-                        <span class="d-inline-flex align-items-center gap-1">
-                            <i class="fas fa-clock"></i>
-                            Updated
-                            <i class="fas fa-sort sort-icon ms-1"></i>
-                        </span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody id="tableBody">
-                {{-- Data produk diisi JS --}}
-            </tbody>
-        </table>
-        <!-- Pagination Controls -->
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <div class="d-flex align-items-center gap-3">
-                <div>
-                    <label class="me-2">Tampilkan</label>
-                    <select id="produkPageSize" class="form-select d-inline-block" style="width: 80px;">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                    <span class="ms-2">data per halaman</span>
-                </div>
-                <div class="text-muted">
-                    <small id="paginationInfo">Menampilkan 0-0 dari 0 data</small>
-                </div>
-            </div>
-            <nav>
-                <ul class="pagination mb-0" id="produkPagination"></ul>
+                <nav>
+                    <ul class="pagination mb-0" id="produkPagination"></ul>
             </div>
         </div>
     </div>
 
+    <!-- Modals Tambah atau Edit Produk -->
     <div class="modal fade" id="baruProdukModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -238,27 +260,27 @@
                         <ul class="nav nav-tabs border-0 px-3" id="tambahProdukTabs">
                             <li class="nav-item">
                                 <button class="nav-link active" id="step1-tab" data-bs-toggle="tab"
-                                        data-bs-target="#step1" data-step="1">
+                                    data-bs-target="#step1" data-step="1">
                                     <i class="fas fa-info-circle me-2"></i>Data Dasar
                                 </button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link" id="step2-tab" data-bs-toggle="tab"
-                                        data-bs-target="#step2" data-step="2">
+                                <button class="nav-link" id="step2-tab" data-bs-toggle="tab" data-bs-target="#step2"
+                                    data-step="2">
                                     <i class="fas fa-balance-scale me-2"></i>Satuan
                                     <span class="badge bg-secondary ms-1" style="display: none;">0</span>
                                 </button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link" id="step3-tab" data-bs-toggle="tab"
-                                        data-bs-target="#step3" data-step="3">
+                                <button class="nav-link" id="step3-tab" data-bs-toggle="tab" data-bs-target="#step3"
+                                    data-step="3">
                                     <i class="fas fa-barcode me-2"></i>Barcode
                                     <span class="badge bg-secondary ms-1" style="display: none;">0</span>
                                 </button>
                             </li>
                             <li class="nav-item">
-                                <button class="nav-link" id="step4-tab" data-bs-toggle="tab"
-                                        data-bs-target="#step4" data-step="4">
+                                <button class="nav-link" id="step4-tab" data-bs-toggle="tab" data-bs-target="#step4"
+                                    data-step="4">
                                     <i class="fas fa-percent me-2"></i>Diskon
                                     <span class="badge bg-secondary ms-1" style="display: none;">0</span>
                                 </button>
@@ -276,7 +298,8 @@
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="mb-3">
-                                                <label class="form-label fw-bold">Nama Produk <span class="text-danger">*</span></label>
+                                                <label class="form-label fw-bold">Nama Produk <span
+                                                        class="text-danger">*</span></label>
                                                 <input type="text" class="form-control" name="nama_produk"
                                                     placeholder="Masukkan nama produk" autocomplete="off" required>
                                             </div>
@@ -296,7 +319,8 @@
 
                                         <div class="col-md-6">
                                             <div class="mb-3">
-                                                <label class="form-label fw-bold">Satuan <span class="text-danger">*</span></label>
+                                                <label class="form-label fw-bold">Satuan <span
+                                                        class="text-danger">*</span></label>
                                                 <input type="text" class="form-control" name="satuan"
                                                     placeholder="pcs, kg, liter, dll" autocomplete="off" required>
                                             </div>
@@ -313,16 +337,16 @@
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label fw-bold">Harga Beli</label>
-                                                <input type="text" class="form-control currency-input" name="harga_beli"
-                                                    placeholder="0" autocomplete="off">
+                                                <input type="text" class="form-control currency-input"
+                                                    name="harga_beli" placeholder="0" autocomplete="off">
                                             </div>
                                         </div>
 
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label fw-bold">Harga Jual</label>
-                                                <input type="text" class="form-control currency-input" name="harga_jual"
-                                                    placeholder="0" autocomplete="off">
+                                                <input type="text" class="form-control currency-input"
+                                                    name="harga_jual" placeholder="0" autocomplete="off">
                                             </div>
                                         </div>
 
@@ -339,7 +363,8 @@
                                 <div class="tab-pane fade" id="step2">
                                     <div class="card">
                                         <div class="card-header">
-                                            <h6 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Konversi Satuan</h6>
+                                            <h6 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Konversi Satuan
+                                            </h6>
                                         </div>
                                         <div class="card-body">
                                             <div class="row align-items-end">
@@ -359,7 +384,8 @@
                                                         placeholder="12" min="1" step="0.01">
                                                 </div>
                                                 <div class="col-md-3">
-                                                    <button type="button" class="btn btn-primary" onclick="tambahKonversiSatuan()">
+                                                    <button type="button" class="btn btn-primary"
+                                                        onclick="tambahKonversiSatuan()">
                                                         <i class="fas fa-plus"></i> Tambah
                                                     </button>
                                                 </div>
@@ -368,7 +394,8 @@
                                     </div>
 
                                     <div class="mt-3">
-                                        <h6>Daftar Konversi Satuan <span class="badge bg-primary" id="satuanCount">0</span></h6>
+                                        <h6>Daftar Konversi Satuan <span class="badge bg-primary"
+                                                id="satuanCount">0</span></h6>
                                         <div id="konversiSatuanList">
                                             <!-- List konversi akan dirender di sini -->
                                         </div>
@@ -381,28 +408,33 @@
                                         <div class="col-md-8">
                                             <div class="card">
                                                 <div class="card-header">
-                                                    <h6 class="mb-0"><i class="fas fa-barcode me-2"></i>Input Barcode</h6>
+                                                    <h6 class="mb-0"><i class="fas fa-barcode me-2"></i>Input Barcode
+                                                    </h6>
                                                 </div>
                                                 <div class="card-body">
                                                     <div class="row align-items-end">
                                                         <div class="col-md-6">
                                                             <label class="form-label">Kode Barcode</label>
-                                                            <input type="text" class="form-control" id="newBarcodeInput"
+                                                            <input type="text" class="form-control"
+                                                                id="newBarcodeInput"
                                                                 placeholder="Scan atau ketik barcode">
                                                         </div>
                                                         <div class="col-md-3">
                                                             <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" id="newBarcodeUtama">
+                                                                <input class="form-check-input" type="checkbox"
+                                                                    id="newBarcodeUtama">
                                                                 <label class="form-check-label" for="newBarcodeUtama">
                                                                     Barcode Utama
                                                                 </label>
                                                             </div>
                                                         </div>
                                                         <div class="col-md-3">
-                                                            <button type="button" class="btn btn-primary me-2" onclick="tambahBarcodeBaru()">
+                                                            <button type="button" class="btn btn-primary me-2"
+                                                                onclick="tambahBarcodeBaru()">
                                                                 <i class="fas fa-plus"></i> Tambah
                                                             </button>
-                                                            <button type="button" class="btn btn-outline-secondary" onclick="generateRandomBarcode()">
+                                                            <button type="button" class="btn btn-outline-secondary"
+                                                                onclick="generateRandomBarcode()">
                                                                 <i class="fas fa-random"></i>
                                                             </button>
                                                         </div>
@@ -411,7 +443,8 @@
                                             </div>
 
                                             <div class="mt-3">
-                                                <h6>Daftar Barcode <span class="badge bg-primary" id="barcodeCount">0</span></h6>
+                                                <h6>Daftar Barcode <span class="badge bg-primary"
+                                                        id="barcodeCount">0</span></h6>
                                                 <div id="barcodeListContainer">
                                                     <!-- List barcode akan dirender di sini -->
                                                 </div>
@@ -442,7 +475,8 @@
                                         <div class="card-body">
                                             <div class="row">
                                                 <div class="col-md-3">
-                                                    <label class="form-label">Minimum <span id="diskonUnit">pcs</span></label>
+                                                    <label class="form-label">Minimum <span
+                                                            id="diskonUnit">pcs</span></label>
                                                     <input type="number" class="form-control" id="newDiskonMinimum"
                                                         placeholder="1" min="1">
                                                 </div>
@@ -453,7 +487,8 @@
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" id="diskonTanpaWaktu" checked>
+                                                        <input class="form-check-input" type="checkbox"
+                                                            id="diskonTanpaWaktu" checked>
                                                         <label class="form-check-label" for="diskonTanpaWaktu">
                                                             Diskon Permanen (Tanpa Batas Waktu)
                                                         </label>
@@ -463,11 +498,13 @@
                                                         <div class="row">
                                                             <div class="col-md-6">
                                                                 <label class="form-label small">Tanggal Mulai</label>
-                                                                <input type="date" class="form-control form-control-sm" id="diskonMulai">
+                                                                <input type="date" class="form-control form-control-sm"
+                                                                    id="diskonMulai">
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label class="form-label small">Tanggal Berakhir</label>
-                                                                <input type="date" class="form-control form-control-sm" id="diskonBerakhir">
+                                                                <input type="date" class="form-control form-control-sm"
+                                                                    id="diskonBerakhir">
                                                             </div>
                                                         </div>
                                                     </div>
@@ -475,7 +512,8 @@
                                             </div>
 
                                             <div class="text-end mt-3">
-                                                <button type="button" class="btn btn-primary" onclick="tambahDiskonBaru()">
+                                                <button type="button" class="btn btn-primary"
+                                                    onclick="tambahDiskonBaru()">
                                                     <i class="fas fa-plus"></i> Tambah Diskon
                                                 </button>
                                             </div>
@@ -512,6 +550,7 @@
         </div>
     </div>
 
+    <!-- Modals Restok Produk -->
     <div class="modal fade" id="restokProdukModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -531,8 +570,10 @@
                     </div>
                     <div class="modal-footer bg-light justify-content-between align-items-center flex-wrap">
                         <div class="d-flex align-items-center gap-2">
-                            <button type="button" class="btn btn-outline-primary fw-bold" tabindex="-1" style="pointer-events: none;">
-                                Total Harga Beli: <span id="totalHargaBeliRestok" class="fw-bold text-primary ms-2">Rp 0</span>
+                            <button type="button" class="btn btn-outline-primary fw-bold" tabindex="-1"
+                                style="pointer-events: none;">
+                                Total Harga Beli: <span id="totalHargaBeliRestok" class="fw-bold text-primary ms-2">Rp
+                                    0</span>
                             </button>
                             <span class="badge bg-secondary ms-2" id="jumlahProdukRestok">0</span>
                             <span class="ms-1">produk</span>
@@ -551,6 +592,7 @@
         </div>
     </div>
 
+    <!-- Modals Retur Produk -->
     <div class="modal fade" id="returProdukModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -578,6 +620,7 @@
         </div>
     </div>
 
+    <!-- Modals Hapus Produk -->
     <div class="modal fade" id="hapusProdukModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -591,8 +634,8 @@
             </div>
         </div>
     </div>
-</div>
-@push('scripts')
-    <script src="{{ asset('js/modules/produk.js') }}"></script>
-@endpush
+    </div>
+    @push('scripts')
+        <script src="{{ asset('js/modules/produk.js') }}"></script>
+    @endpush
 @endsection

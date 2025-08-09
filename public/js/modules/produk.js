@@ -1,6 +1,16 @@
 // SIMPLIFIED: Keep only essential functions
 document.addEventListener('DOMContentLoaded', function () {
-
+    if (localStorage.getItem('loginSuccess') === '1') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Login berhasil!',
+            showConfirmButton: false,
+            timer: 2000
+        });
+        localStorage.removeItem('loginSuccess');
+    }
     const DOM = {
         meta: {
             csrfToken: document.querySelector('meta[name="csrf-token"]').content
@@ -20,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    // STATE MANAGEMENT
     const state = {
         currentSort: { field: 'nama_produk', direction: 'asc' },
         totals: { produk: 0, stok: 0, modal: 0, nilaiProduk: 0 },
@@ -32,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
         productDrafts: {}
     };
 
+    // PAGINATION STATE
     const pagination = {
         page: 1,
         pageSize: 10
@@ -43,14 +55,18 @@ document.addEventListener('DOMContentLoaded', function () {
         setupEventListeners();
     }
 
+    // Initialize on DOM ready
     function setupEventListeners() {
+        // Cegah duplikasi event listener jika sudah pernah dipasang
         if (window.produkEventListenersAttached) return;
 
-        // Table interactions
-        document.addEventListener('click', function(e) {
+        // Event klik pada tabel dan pagination
+        document.addEventListener('click', function (e) {
+            // Jika klik pada baris tabel produk
             if (e.target.closest('#tableBody')) {
                 handleTableClick(e);
             }
+            // Jika klik pada pagination
             if (e.target.closest('#produkPagination')) {
                 e.preventDefault();
                 const page = parseInt(e.target.getAttribute('data-page'));
@@ -61,72 +77,73 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
+        // Event perubahan page size pada pagination
         const pageSizeSelect = document.getElementById('produkPageSize');
         if (pageSizeSelect) {
-            pageSizeSelect.addEventListener('change', function(e) {
+            pageSizeSelect.addEventListener('change', function (e) {
                 pagination.pageSize = parseInt(e.target.value);
-                pagination.page = 1;
+                pagination.page = 1; // Reset ke halaman 1 saat page size berubah
                 performSimpleSearch();
             });
         }
 
-        document.addEventListener('change', function(e) {
+        // Event perubahan checkbox baris (pilih produk)
+        document.addEventListener('change', function (e) {
             if (e.target.classList.contains('row-checkbox')) {
                 handleRowCheckboxChange(e.target);
             }
         });
 
-        // Search
+        // Event pencarian produk (input search)
         const searchInput = document.getElementById('searchProdukInput');
         if (searchInput) {
             searchInput.addEventListener('input', performSimpleSearch);
         }
 
-        // Export buttons
+        // Event export Excel dan PDF
         const exportExcelBtn = document.getElementById('exportExcelBtn');
         const exportPdfBtn = document.getElementById('exportPdfBtn');
         if (exportExcelBtn) {
-            exportExcelBtn.addEventListener('click', function(e) {
+            exportExcelBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 exportToExcel();
             });
         }
         if (exportPdfBtn) {
-            exportPdfBtn.addEventListener('click', function(e) {
+            exportPdfBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 exportToPdf();
             });
         }
 
-        // Filters and sorting
+        // Event sorting dan filter kategori/supplier
         DOM.table.sortableHeaders.forEach(header => header.addEventListener('click', handleSort));
         DOM.filters.kategori.addEventListener('change', performSimpleSearch);
         DOM.filters.supplier.addEventListener('change', performSimpleSearch);
         DOM.table.selectAll.addEventListener('change', handleSelectedRow);
 
-        // Modal buttons - HANYA save button
+        // Event tombol aksi utama (tambah, simpan, hapus produk)
         document.getElementById('baruProdukBtn').addEventListener('click', initializeProductModal);
         document.getElementById('saveProductBtn').addEventListener('click', saveCompleteProduct);
         document.getElementById('hapusProdukBtn').addEventListener('click', deleteSelected);
 
-        // Modal events
+        // Event modal tambah produk (reset form saat modal ditutup)
         const modalElement = document.getElementById('baruProdukModal');
         if (modalElement) {
-            modalElement.addEventListener('shown.bs.modal', function() {
+            modalElement.addEventListener('shown.bs.modal', function () {
                 setupModalEventListeners();
             });
 
-            modalElement.addEventListener('hidden.bs.modal', function() {
-                // Reset modal state when closed
+            modalElement.addEventListener('hidden.bs.modal', function () {
+                // Reset state produk baru dan form saat modal ditutup
                 state.newProduct = {
                     barcodes: [],
                     konversiSatuan: [],
                     diskon: []
                 };
 
-                // Clear all form inputs
                 const form = document.getElementById('formTambahProduk');
                 if (form) {
                     form.reset();
@@ -138,19 +155,20 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        // Edit mode buttons
+        // Event tombol edit mode dan keluar edit mode
         const editTableBtn = document.getElementById('editTableBtn');
         const exitEditModeBtn = document.getElementById('exitEditModeBtn');
         if (editTableBtn) editTableBtn.addEventListener('click', enterEditMode);
         if (exitEditModeBtn) exitEditModeBtn.addEventListener('click', exitEditMode);
 
-        // Restok button
+        // Event tombol restok produk
         const restokBtn = document.getElementById('restokProdukBtn');
         if (restokBtn) {
-            restokBtn.addEventListener('click', function(e) {
+            restokBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
 
+                // Validasi: harus ada produk yang dipilih
                 if (!state.selectedProduk || state.selectedProduk.length === 0) {
                     Swal.fire({
                         title: 'Pilih Produk!',
@@ -167,31 +185,14 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        restokBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (!state.selectedProduk || state.selectedProduk.length === 0) {
-                Swal.fire({
-                    title: 'Pilih Produk!',
-                    text: 'Silakan pilih produk yang akan direstok terlebih dahulu.',
-                    icon: 'warning',
-                    confirmButtonText: 'OK'
-                });
-                return;
-            }
-
-            showRestokModal();
-            const modal = new bootstrap.Modal(document.getElementById('restokProdukModal'));
-            modal.show();
-        });
-
+        // Event tombol retur produk
         const returBtn = document.getElementById('returProdukBtn');
         if (returBtn) {
-            returBtn.addEventListener('click', function(e) {
+            returBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
 
+                // Validasi: harus ada produk yang dipilih
                 if (!state.selectedProduk || state.selectedProduk.length === 0) {
                     Swal.fire({
                         title: 'Pilih Produk!',
@@ -208,10 +209,10 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        // Event saat modal restok ditutup: bersihkan backdrop dan body
         const restokModalEl = document.getElementById('restokProdukModal');
         if (restokModalEl) {
             restokModalEl.addEventListener('hidden.bs.modal', function () {
-                // Hapus backdrop jika masih ada
                 document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
                 document.body.classList.remove('modal-open');
                 document.body.style.overflow = '';
@@ -219,28 +220,45 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        // Event saat modal retur ditutup: bersihkan backdrop dan body
+        const returModalEl = document.getElementById('returProdukModal');
+        if (returModalEl) {
+            returModalEl.addEventListener('hidden.bs.modal', function () {
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            });
+        }
+
+        // Tandai bahwa event listener sudah dipasang agar tidak dobel
         window.produkEventListenersAttached = true;
     }
 
-    // DATA LOADING
+    // LOAD DATA FUNCTION
     async function loadData(sortField, sortDirection) {
         try {
+            // Ambil data produk dari API dengan parameter sorting
             const response = await fetch(`/api/produk?sort=${sortField}&order=${sortDirection}`, {
                 credentials: 'same-origin',
             });
 
+            // Jika gagal, tampilkan pesan error
             if (!response.ok) {
                 throw new Error('Gagal memuat data');
             }
 
+            // Simpan data produk ke state
             const produkList = await response.json();
             state.allProducts = produkList;
 
+            // Render tabel, update statistik, dan filter
             renderTable(state.allProducts);
             updateTotals(state.allProducts);
             populateFilters(state.allProducts);
 
         } catch (error) {
+            // Jika error, tampilkan pesan error di tabel
             console.error('Error:', error);
             DOM.table.body.innerHTML = `
                 <tr><td colspan="9" class="text-center text-danger">GAGAL MEMUAT DATA: ${error.message}</td></tr>
@@ -248,39 +266,44 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // SEARCH & FILTER
+    // Fungsi untuk melakukan pencarian/filter sederhana pada data produk
     function performSimpleSearch() {
+        // Ambil data yang sudah difilter (berdasarkan search, kategori, supplier)
         const filteredData = getCurrentFilteredData();
+        // Render tabel dan update statistik dengan data hasil filter
         renderTable(filteredData);
         updateTotals(filteredData);
 
-        // Update page size selector value
+        // Sinkronkan page size select jika berubah
         const pageSizeSelect = document.getElementById('produkPageSize');
         if (pageSizeSelect && pageSizeSelect.value != pagination.pageSize) {
             pageSizeSelect.value = pagination.pageSize;
         }
     }
 
-    // TABLE RENDERING
+    // Get current filtered data based on search and filters
     function renderTable(data) {
+        // Jika data kosong atau bukan array, tampilkan pesan tidak ada data dan kosongkan pagination
         if (!Array.isArray(data) || data.length === 0) {
             DOM.table.body.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">TIDAK ADA DATA</td></tr>`;
             renderPagination(0, 1);
             return;
         }
 
+        // Hitung total halaman berdasarkan jumlah data dan page size
         const totalPages = Math.ceil(data.length / pagination.pageSize);
-
+        // Pastikan halaman aktif tidak melebihi total halaman
         if (pagination.page > totalPages) pagination.page = totalPages;
         if (pagination.page < 1) pagination.page = 1;
-
+        // Hitung index awal dan akhir data untuk halaman ini
         const startIdx = (pagination.page - 1) * pagination.pageSize;
         const endIdx = startIdx + pagination.pageSize;
+        // Ambil data yang akan ditampilkan pada halaman ini
         const pagedData = data.slice(startIdx, endIdx);
-
+        // Buat set id produk yang sedang dipilih (checkbox)
         const selectedIds = new Set(state.selectedProduk.map(p => p.id));
 
-        // Tempatkan di dalam renderTable, sebelum rows.map
+        // Fungsi untuk menghitung stok berdasarkan satuan
         function getStokBySatuan(stokPcs, satuan, satuanDasar, konversiObj) {
             if (satuan === satuanDasar) return stokPcs;
             const konversi = Number(konversiObj[satuan]);
@@ -290,21 +313,78 @@ document.addEventListener('DOMContentLoaded', function () {
             return 0;
         }
 
+        // Buat baris-baris tabel produk
         const rows = pagedData.map(item => {
             const isSelected = selectedIds.has(item.id);
 
-            // Ambil semua satuan (dasar + konversi)
+            // --- BARCODE ---
+            // Tampilkan barcode utama, jika lebih dari satu tampilkan badge 1+ dengan tooltip barcode lain
+            let barcodeText = '';
+            if (Array.isArray(item.barcodes) && item.barcodes.length > 0) {
+                const utama = item.barcodes.find(b => b.is_utama);
+                const mainBarcode = utama ? utama.kode_barcode : item.barcodes[0].kode_barcode;
+                if (item.barcodes.length === 1) {
+                    barcodeText = `<span>${mainBarcode}</span>`;
+                } else {
+                    // Barcode lain (selain utama/pertama) untuk tooltip
+                    const otherBarcodes = item.barcodes
+                        .filter(b => (utama ? b.kode_barcode !== utama.kode_barcode : b !== item.barcodes[0]))
+                        .map(b => b.kode_barcode)
+                        .join('<br>');
+                    barcodeText = `
+                        <span>${mainBarcode}</span>
+                        <span class="badge bg-info ms-1"
+                            data-bs-toggle="tooltip"
+                            data-bs-html="true"
+                            title="${otherBarcodes}">
+                            1+
+                        </span>
+                    `;
+                }
+            } else {
+                barcodeText = '<span class="text-muted">-</span>';
+            }
+
+            // --- DISKON ---
+            // Tampilkan diskon terbesar, jika lebih dari satu tampilkan badge 1+ dengan tooltip diskon lain
+            let diskonText = '';
+            if (Array.isArray(item.diskon) && item.diskon.length > 0) {
+                if (item.diskon.length === 1) {
+                    diskonText = `<span class="badge bg-success">${item.diskon[0].diskon}%</span>`;
+                } else {
+                    const sortedDiskon = [...item.diskon].sort((a, b) => b.diskon - a.diskon);
+                    const maxDiskon = sortedDiskon[0].diskon;
+                    const otherDiskon = sortedDiskon.slice(1)
+                        .map(d => `${d.diskon}%`)
+                        .join('<br>');
+                    diskonText = `
+                        <span class="badge bg-success">${maxDiskon}%</span>
+                        <span class="badge bg-info ms-1"
+                            data-bs-toggle="tooltip"
+                            data-bs-html="true"
+                            title="${otherDiskon}">
+                            1+
+                        </span>
+                    `;
+                }
+            } else {
+                diskonText = '<span class="text-muted">-</span>';
+            }
+
+            // --- SATUAN ---
+            // Ambil semua satuan (dasar + konversi) dan buat dropdown jika lebih dari satu
             let satuanList = [item.satuan || ''];
             let konversiObj = {};
             if (Array.isArray(item.konversi_satuan)) {
                 satuanList = satuanList.concat(item.konversi_satuan.map(k => k.satuan_besar));
                 item.konversi_satuan.forEach(k => {
-                    konversiObj[k.satuan_besar] = Number(k.konversi) || 0; // <-- pastikan gunakan 'konversi' saja
+                    konversiObj[k.satuan_besar] = Number(k.konversi) || 0;
                 });
             }
             satuanList = [...new Set(satuanList.filter(Boolean))];
 
-            // Harga beli & jual default (satuan dasar)
+            // --- HARGA BELI & JUAL ---
+            // Harga default satuan dasar, jika ada multi harga ambil sesuai satuan
             let hargaBeli = item.harga_beli || 0;
             let hargaJual = item.harga_jual || 0;
             if (Array.isArray(item.multi_harga) && item.multi_harga.length > 0) {
@@ -315,12 +395,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            // Cek multi harga
+            // --- DROPDOWN SATUAN ---
+            // Jika multi harga, enable semua satuan, jika tidak hanya satuan dasar
             let multiHarga = Array.isArray(item.multi_harga) ? item.multi_harga : [];
             let satuanDasar = item.satuan;
             let enabledSatuan = multiHarga.length > 1 ? satuanList : [satuanDasar];
 
-            // Dropdown satuan: disable opsi selain satuan dasar jika multi harga hanya satu
             let satuanCell;
             if (satuanList.length > 1) {
                 satuanCell = `
@@ -336,39 +416,52 @@ document.addEventListener('DOMContentLoaded', function () {
                 satuanCell = satuanList[0] || '';
             }
 
-            // Default satuan yang dipilih (satuan dasar)
+            // --- STOK ---
+            // Hitung stok sesuai satuan terpilih (default satuan dasar)
             let satuanTerpilih = satuanDasar;
-
-            // Stok sesuai satuan terpilih
             let stokTampil = getStokBySatuan(item.stok || 0, satuanTerpilih, satuanDasar, konversiObj);
             const stokBadge = stokTampil <= 10
                 ? `<span class="badge bg-danger">${stokTampil}</span>`
                 : `<span class="badge bg-secondary">${stokTampil}</span>`;
 
+            // --- RETURN: Baris HTML untuk tabel produk ---
             return `
                 <tr data-id="${item.id}">
                     <td class="text-center">
                         <input type="checkbox" class="row-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''}>
                     </td>
                     <td class="editable-cell" data-field="nama_produk">${item.nama_produk || ''}</td>
+                    <td>${barcodeText}</td>
                     <td class="editable-cell" data-field="kategori">${item.kategori || ''}</td>
                     <td class="editable-cell" data-field="supplier">${item.supplier || ''}</td>
                     <td>${satuanCell}</td>
                     <td class="editable-cell stok-cell" data-field="stok">${stokBadge}</td>
                     <td class="editable-cell harga-beli-cell" data-field="harga_beli">${formatCurrency(hargaBeli)}</td>
                     <td class="editable-cell harga-jual-cell" data-field="harga_jual">${formatCurrency(hargaJual)}</td>
+                    <td>${diskonText}</td>
                     <td>${formatRelativeDate(item.updated_at)}</td>
                 </tr>
             `;
         });
 
+        // Tampilkan baris-baris tabel ke DOM
         DOM.table.body.innerHTML = rows.join('');
+        // Render pagination dan info jumlah data
         renderPagination(totalPages, pagination.page);
         updatePaginationInfo(data.length, startIdx + 1, Math.min(endIdx, data.length));
 
+        // Aktifkan tooltip Bootstrap pada badge barcode/diskon
+        setTimeout(() => {
+            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+                if (!el._tooltip) {
+                    el._tooltip = new bootstrap.Tooltip(el);
+                }
+            });
+        }, 10);
+
         // Event listener: update harga beli/jual & stok saat satuan diubah
         document.querySelectorAll('.satuan-table-select').forEach(select => {
-            select.addEventListener('change', function() {
+            select.addEventListener('change', function () {
                 const row = this.closest('tr');
                 const produkId = row.dataset.id;
                 const produk = state.allProducts.find(p => p.id == produkId);
@@ -398,7 +491,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 let konversiObj = {};
                 if (Array.isArray(produk.konversi_satuan)) {
                     produk.konversi_satuan.forEach(k => {
-                        konversiObj[k.satuan_besar] = Number(k.konversi) || 0; // <-- pastikan gunakan 'konversi' saja
+                        konversiObj[k.satuan_besar] = Number(k.konversi) || 0;
                     });
                 }
                 let stokTampil = getStokBySatuan(produk.stok || 0, satuan, satuanDasar, konversiObj);
@@ -410,15 +503,22 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // PAGINATION
     function updatePaginationInfo(totalData, startItem, endItem) {
+        // Ambil elemen info pagination di halaman
         const infoElement = document.getElementById('paginationInfo');
         if (infoElement) {
+            // Tampilkan informasi jumlah data yang sedang ditampilkan pada halaman ini
+            // Contoh: "Menampilkan 11-20 dari 57 data"
             infoElement.textContent = `Menampilkan ${startItem}-${endItem} dari ${totalData} data`;
         }
     }
 
+    // Render pagination dengan tombol navigasi
     function renderPagination(totalPages, currentPage) {
+        // Ambil elemen pagination dari DOM
         const paginationEl = document.getElementById('produkPagination');
+        // Jika tidak ada elemen pagination atau hanya 1 halaman, kosongkan pagination
         if (!paginationEl || totalPages <= 1) {
             if (paginationEl) paginationEl.innerHTML = '';
             return;
@@ -426,26 +526,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let html = '';
 
-        // Previous button
+        // --- Tombol Previous ---
+        // Disabled jika di halaman pertama
         html += `<li class="page-item${currentPage === 1 ? ' disabled' : ''}">
             <a class="page-link" href="#" data-page="${currentPage - 1}" ${currentPage === 1 ? 'tabindex="-1"' : ''}>
                 <i class="fas fa-chevron-left"></i>
             </a>
         </li>`;
 
-        // Page numbers logic
+        // --- Penentuan range halaman yang akan ditampilkan ---
+        // Tampilkan maksimal 5 halaman di sekitar halaman aktif
         let startPage = Math.max(1, currentPage - 2);
         let endPage = Math.min(totalPages, currentPage + 2);
 
-        // Adjust if we're near the beginning or end
+        // Jika di awal, geser range ke kanan
         if (currentPage <= 3) {
             endPage = Math.min(5, totalPages);
         }
+        // Jika di akhir, geser range ke kiri
         if (currentPage >= totalPages - 2) {
             startPage = Math.max(1, totalPages - 4);
         }
 
-        // First page and ellipsis
+        // --- Tombol halaman pertama dan ellipsis jika perlu ---
         if (startPage > 1) {
             html += `<li class="page-item">
                 <a class="page-link" href="#" data-page="1">1</a>
@@ -457,14 +560,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Page numbers
+        // --- Tombol nomor halaman utama (dinamis) ---
         for (let i = startPage; i <= endPage; i++) {
             html += `<li class="page-item${i === currentPage ? ' active' : ''}">
                 <a class="page-link" href="#" data-page="${i}">${i}</a>
             </li>`;
         }
 
-        // Last page and ellipsis
+        // --- Tombol halaman terakhir dan ellipsis jika perlu ---
         if (endPage < totalPages) {
             if (endPage < totalPages - 1) {
                 html += `<li class="page-item disabled">
@@ -476,23 +579,27 @@ document.addEventListener('DOMContentLoaded', function () {
             </li>`;
         }
 
-        // Next button
+        // --- Tombol Next ---
+        // Disabled jika di halaman terakhir
         html += `<li class="page-item${currentPage === totalPages ? ' disabled' : ''}">
             <a class="page-link" href="#" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'tabindex="-1"' : ''}>
                 <i class="fas fa-chevron-right"></i>
             </a>
         </li>`;
 
+        // Tampilkan HTML pagination ke elemen
         paginationEl.innerHTML = html;
     }
 
-    // RESTORED: IMPORTANT saveCellEdit function
+
+    // Fungsi untuk menyimpan perubahan pada sel tabel yang diedit secara inline
     async function saveCellEdit(cell) {
         const row = cell.closest('tr');
         const produkId = row.dataset.id;
         const field = cell.dataset.field;
         let newValue = cell.textContent.trim();
 
+        // Cari data produk asli dari state
         const originalProduct = state.allProducts.find(p => p.id == produkId);
         if (!originalProduct) {
             await Swal.fire({
@@ -504,15 +611,15 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Skip jika tidak ada perubahan
+        // Jika tidak ada perubahan, skip
         if (originalProduct[field] == newValue) return;
 
         try {
-            cell.style.backgroundColor = '#fff3cd'; // Loading indicator
+            cell.style.backgroundColor = '#fff3cd'; // Indikator loading
 
             let updateData = {};
 
-            // Handle different field types dengan parsing yang benar
+            // Parsing nilai sesuai tipe field
             switch (field) {
                 case 'stok':
                     // Ambil angka dari badge
@@ -521,16 +628,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     break;
                 case 'harga_beli':
                 case 'harga_jual':
-                    // Parse currency format (Rp 123.456)
+                    // Parse format currency (Rp 123.456)
                     updateData[field] = parseInt(newValue.replace(/[^\d]/g, '')) || 0;
                     break;
                 default:
                     updateData[field] = newValue;
             }
 
-            // PERBAIKI: Sesuaikan dengan route di web.php (PUT method)
+            // Kirim update ke backend (PUT)
             const response = await fetch(`/api/produk/${produkId}`, {
-                method: 'PUT', // Sesuai dengan Route::put('/produk/{id}')
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': DOM.meta.csrfToken,
@@ -541,6 +648,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const responseData = await response.json();
 
+            // Simpan tracking perubahan
             await saveTracking({
                 tipe: 'Produk',
                 keterangan: `Edit produk: Edit Tabel kolom ${field} (${originalProduct.nama_produk})`,
@@ -550,14 +658,14 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             if (response.ok) {
-                // Update state dengan data terbaru
+                // Update state produk dengan data terbaru
                 Object.assign(originalProduct, updateData);
 
-                // Update updated_at ke waktu sekarang (real time)
+                // Update waktu updated_at ke sekarang
                 const now = new Date();
                 originalProduct.updated_at = now.toISOString();
 
-                // Update display dengan format yang benar
+                // Update tampilan sel sesuai format
                 if (field.includes('harga')) {
                     cell.textContent = formatCurrency(updateData[field]);
                 } else if (field === 'stok') {
@@ -572,13 +680,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     updatedCell.textContent = formatRelativeDate(originalProduct.updated_at);
                 }
 
-                // Success styling
+                // Styling sukses
                 cell.style.backgroundColor = '#d1e7dd';
                 setTimeout(() => {
                     cell.style.backgroundColor = state.isEditMode ? '#f8f9fa' : '';
                 }, 2000);
 
-                // Success notification
+                // Notifikasi sukses
                 await Swal.fire({
                     title: 'Berhasil!',
                     text: `${field.replace('_', ' ')} berhasil diperbarui`,
@@ -589,7 +697,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     position: 'top-end'
                 });
 
-                // Update totals jika perlu
+                // Update total jika perlu
                 updateTotals(state.allProducts);
 
             } else {
@@ -599,7 +707,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             console.error('Save error:', error);
 
-            // Restore original value dengan format yang benar
+            // Kembalikan nilai lama jika gagal
             if (field.includes('harga')) {
                 cell.textContent = formatCurrency(originalProduct[field] || 0);
             } else if (field === 'stok') {
@@ -615,7 +723,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 cell.style.backgroundColor = state.isEditMode ? '#f8f9fa' : '';
             }, 2000);
 
-            // Error notification
+            // Notifikasi error
             await Swal.fire({
                 title: 'Gagal Menyimpan!',
                 html: `
@@ -633,8 +741,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menghitung dan menampilkan total produk, stok, modal, dan nilai produk
     function updateTotals(data) {
-        // Hitung total produk, stok, modal, nilai produk
+        // Hitung total dari data produk
         const totals = data.reduce((acc, item) => {
             acc.produk += 1;
             acc.stok += item.stok || 0;
@@ -643,6 +752,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return acc;
         }, { produk: 0, stok: 0, modal: 0, nilaiProduk: 0 });
 
+        // Update tampilan elemen total di halaman
         const elements = {
             totalProduk: document.getElementById('totalProdukCount'),
             totalStok: document.getElementById('totalStokCount'),
@@ -656,21 +766,25 @@ document.addEventListener('DOMContentLoaded', function () {
         if (elements.totalNilaiProduk) elements.totalNilaiProduk.textContent = formatCurrency(totals.nilaiProduk);
     }
 
-    // SORTING
+    // Fungsi untuk menangani klik sorting pada header tabel
     function handleSort() {
         const sortField = this.getAttribute('data-sort');
 
+        // Jika field sama, toggle arah sorting
         if (state.currentSort.field === sortField) {
             state.currentSort.direction = state.currentSort.direction === 'asc' ? 'desc' : 'asc';
         } else {
+            // Jika field berbeda, set field baru dan arah default asc
             state.currentSort.field = sortField;
             state.currentSort.direction = 'asc';
         }
 
+        // Muat ulang data dengan sorting baru
         loadData(state.currentSort.field, state.currentSort.direction);
         updateSortIcons();
     }
 
+    // Fungsi untuk memperbarui ikon sort pada header tabel sesuai field dan arah aktif
     function updateSortIcons() {
         DOM.table.sortableHeaders.forEach(header => {
             const icon = header.querySelector('.sort-icon');
@@ -682,12 +796,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // MODAL MANAGEMENT - SIMPLIFIED
+    // Fungsi untuk menginisialisasi modal tambah/edit produk.
+    // Menyiapkan state produk baru atau mengisi form dengan data produk yang dipilih untuk diedit.
+    // Juga menyiapkan event listener dan tampilan tab pada modal.
     function initializeProductModal() {
         const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
         const isEditMode = selectedCheckboxes.length > 0;
 
-        // Reset product state
+        // Reset state produk baru
         state.newProduct = {
             barcodes: [],
             konversiSatuan: [],
@@ -695,34 +811,32 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         if (isEditMode) {
+            // Jika mode edit, isi state.selectedProduk dengan produk yang dipilih
             state.selectedProduk = Array.from(selectedCheckboxes).map(checkbox => {
                 return state.allProducts.find(p => p.id == checkbox.dataset.id);
             });
+            // Isi form dengan data produk pertama yang dipilih
             populateFormWithProduct(state.selectedProduk[0]);
             loadExistingBarcodes(state.selectedProduk[0].id);
-            loadExistingSatuan(state.selectedProduk[0].id);   // <-- Tambahkan ini
-            loadExistingDiskon(state.selectedProduk[0].id);   // <-- Tambahkan ini
+            loadExistingSatuan(state.selectedProduk[0].id);
+            loadExistingDiskon(state.selectedProduk[0].id);
         } else {
-            // Reset form untuk produk baru
+            // Jika tambah produk baru, reset form dan input
             const form = document.getElementById('formTambahProduk');
             form.reset();
-
-            // Reset semua input fields supaya tidak ada jejak
             form.querySelectorAll('input').forEach(input => {
                 input.value = '';
                 input.removeAttribute('value');
             });
-
-            // Set default values
             form.querySelector('[name="stok"]').value = '0';
             form.querySelector('#newJumlahSatuan').value = '1';
-
             state.selectedProduk = [];
         }
 
+        // Tampilkan modal tambah/edit produk
         DOM.modals.baru.show();
 
-        // Setup modal event listeners setiap kali modal dibuka
+        // Setup event listener dan tampilan tab setelah modal muncul
         setTimeout(() => {
             setupModalEventListeners();
             renderBarcodeList();
@@ -732,14 +846,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 100);
     }
 
+    // Fungsi untuk mengatur tampilan dan event tab navigasi pada modal tambah/edit produk.
+    // Mengatur tab aktif, reset tab ke posisi awal, dan update step counter.
     function setupTabNavigation() {
-        // Show tab navigation
+        // Tampilkan navigasi tab
         const tabNavigation = document.getElementById('tambahProdukTabs');
         if (tabNavigation) {
             tabNavigation.style.display = 'flex';
         }
 
-        // Reset tab content ke default state
+        // Reset semua tab content ke state awal (tab pertama aktif)
         document.querySelectorAll('.tab-pane').forEach((pane, index) => {
             pane.classList.remove('show', 'active');
             if (index === 0) {
@@ -747,7 +863,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Reset tab navigation ke default
+        // Reset tab navigation ke tab pertama
         document.querySelectorAll('#tambahProdukTabs .nav-link').forEach((link, index) => {
             link.classList.remove('active');
             if (index === 0) {
@@ -755,25 +871,28 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Setup tab click handlers
+        // Pasang event click pada setiap tab
         document.querySelectorAll('#tambahProdukTabs .nav-link').forEach(tab => {
             tab.removeEventListener('click', handleTabClick);
             tab.addEventListener('click', handleTabClick);
         });
 
-        // Update step counters
+        // Update jumlah step pada badge tab
         updateStepCounters();
 
-        // Update modal header
+        // Update judul modal sesuai mode (edit/tambah)
         updateModalHeader();
     }
 
+    // Fungsi untuk mengupdate judul/header pada modal tambah/edit produk.
+    // Menampilkan nama produk jika edit satu produk, atau jumlah produk jika multi-edit.
     function updateModalHeader() {
         const modalTitle = document.querySelector('#baruProdukModal .modal-title');
         const isEditMode = state.selectedProduk.length > 0;
 
         if (isEditMode) {
             if (state.selectedProduk.length === 1) {
+                // Jika hanya satu produk dipilih, tampilkan nama produk
                 const productName = state.selectedProduk[0].nama_produk || 'Produk Tanpa Nama';
                 modalTitle.innerHTML = `
                     <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -783,6 +902,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 `;
             } else {
+                // Jika multi-edit, tampilkan jumlah produk dan dropdown untuk memilih produk
                 const options = state.selectedProduk.map((p) =>
                     `<option value="${p.id}">${p.nama_produk || 'Produk Tanpa Nama'}</option>`
                 ).join('');
@@ -797,16 +917,17 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
                 `;
+                // Event: ganti produk yang diedit pada dropdown
                 setTimeout(() => {
                     const select = document.getElementById('selectEditProduk');
                     if (select) {
                         let lastSelectedId = parseInt(select.value);
 
-                        select.addEventListener('change', function() {
+                        select.addEventListener('change', function () {
                             // Simpan draft produk sebelumnya
                             saveCurrentProductDraft(lastSelectedId);
 
-                            // Load produk baru
+                            // Load produk baru ke form
                             const selectedId = parseInt(this.value);
                             lastSelectedId = selectedId;
                             const produk = state.selectedProduk.find(p => p.id === selectedId);
@@ -832,6 +953,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, 100);
             }
         } else {
+            // Jika tambah produk baru
             modalTitle.innerHTML = `
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <i class="fas fa-plus-circle"></i>
@@ -841,11 +963,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menyimpan draft data produk yang sedang diedit (multi-edit).
+    // Draft ini digunakan agar perubahan pada form tidak hilang saat berpindah produk pada dropdown.
     function saveCurrentProductDraft(produkId) {
         const form = document.getElementById('formTambahProduk');
         if (!produkId || !form) return;
 
-        // Ambil data dari form
+        // Ambil data dari form dan state lalu simpan ke state.productDrafts
         const draft = {
             nama_produk: form.querySelector('[name="nama_produk"]').value,
             kategori: form.querySelector('[name="kategori"]').value,
@@ -861,6 +985,9 @@ document.addEventListener('DOMContentLoaded', function () {
         state.productDrafts[produkId] = draft;
     }
 
+    // Fungsi untuk mengisi form tambah/edit produk dengan data draft (jika ada) atau data produk asli.
+    // Jika draft tersedia (misal pada multi-edit), isi form dari draft agar perubahan tidak hilang saat berpindah produk.
+    // Jika tidak ada draft, isi form dari data produk asli.
     function loadProductDraftToForm(produkId, produk) {
         const draft = state.productDrafts[produkId];
         if (draft) {
@@ -888,6 +1015,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menangani klik pada tab navigasi di modal tambah/edit produk.
+    // Mengaktifkan tab yang diklik dan menampilkan konten tab yang sesuai.
     function handleTabClick(e) {
         e.preventDefault();
         const clickedTab = e.currentTarget;
@@ -908,9 +1037,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (targetPane) {
             targetPane.classList.add('show', 'active');
         }
-
     }
 
+    // Fungsi untuk mengupdate jumlah badge pada setiap tab (barcode, satuan, diskon) di modal tambah/edit produk.
+    // Badge akan menampilkan jumlah data pada masing-masing tab, dan disembunyikan jika jumlahnya 0.
     function updateStepCounters() {
         // Update barcode count
         const barcodeTab = document.querySelector('#step3-tab .badge');
@@ -941,6 +1071,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk mengisi form tambah/edit produk dengan data produk asli (bukan draft).
+    // Digunakan saat membuka modal tambah/edit produk atau saat reset form.
     function populateFormWithProduct(product) {
         const form = document.getElementById('formTambahProduk');
         form.querySelector('[name="nama_produk"]').value = product.nama_produk || '';
@@ -966,7 +1098,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 100);
     }
 
-    // RESTORED: Load existing barcodes
+    // Fungsi untuk mengambil daftar barcode dari backend berdasarkan produkId.
+    // Barcode yang diambil akan di-set ke state.newProduct.barcodes dan dirender ulang ke tampilan.
     async function loadExistingBarcodes(produkId) {
         try {
             const response = await fetch(`/api/produk/${produkId}/barcode`);
@@ -986,7 +1119,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // BARCODE MANAGEMENT - SIMPLIFIED
+    // Fungsi untuk menambah barcode baru ke daftar barcode produk (state.newProduct.barcodes).
+    // Melakukan validasi agar barcode tidak kosong dan tidak duplikat, lalu render ulang daftar barcode.
     function tambahBarcode() {
         const input = document.getElementById('newBarcodeInput');
         const kode = input.value.trim();
@@ -1011,15 +1145,11 @@ document.addEventListener('DOMContentLoaded', function () {
         input.value = '';
         renderBarcodeList();
         showAlert('Barcode ditambahkan', 'success');
-        // saveTracking({
-        //     tipe: 'Produk',
-        //     keterangan: `Edit produk: Edit Tabel kolom ${field} (${originalProduct.nama_produk})`,
-        //     status: 'update Data',
-        //     produk_id: produkId,
-        //     nama_produk: originalProduct.nama_produk
-        // });
     }
 
+    // Fungsi untuk menghapus barcode dari daftar barcode produk.
+    // Jika barcode sudah ada di database, juga menghapusnya di backend.
+    // Setelah dihapus, render ulang daftar barcode dan simpan tracking.
     async function hapusBarcode(id) {
         const barcodeDihapus = state.newProduct.barcodes.find(b => b.id === id);
 
@@ -1051,6 +1181,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menampilkan daftar barcode pada tampilan (container barcodeListContainer).
+    // Jika tidak ada barcode, tampilkan pesan kosong. Juga update badge jumlah barcode pada tab.
     function renderBarcodeList() {
         const container = document.getElementById('barcodeListContainer');
         if (!container) return;
@@ -1075,30 +1207,8 @@ document.addEventListener('DOMContentLoaded', function () {
         updateStepCounters(); // Update tab badges
     }
 
-    function updateStepCounts() {
-        // Update barcode count badge
-        const barcodeCountBadge = document.querySelector('#step2-tab .badge');
-        if (barcodeCountBadge) {
-            barcodeCountBadge.textContent = state.newProduct.barcodes.length;
-        }
-
-        // Update other step counts if needed
-        const stepCounts = {
-            1: 'Data Dasar',
-            2: state.newProduct.barcodes.length,
-            3: 'Review'
-        };
-
-        Object.keys(stepCounts).forEach(step => {
-            const badge = document.querySelector(`#step${step}-tab .badge`);
-            if (badge && typeof stepCounts[step] === 'number') {
-                badge.textContent = stepCounts[step];
-                badge.style.display = stepCounts[step] > 0 ? 'inline' : 'none';
-            }
-        });
-    }
-
-    // SATUAN
+    // Fungsi untuk mengambil daftar konversi satuan dari backend berdasarkan produkId.
+    // Data satuan yang diambil akan di-set ke state.newProduct.konversiSatuan dan dirender ulang ke tampilan.
     async function loadExistingSatuan(produkId) {
         try {
             const response = await fetch(`/api/produk/${produkId}/satuan`);
@@ -1119,6 +1229,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menambah konversi satuan baru ke daftar konversi satuan produk.
+    // Melakukan validasi agar input tidak kosong, tidak duplikat, dan bernilai valid, lalu render ulang daftar satuan.
     function tambahKonversiSatuan() {
         const satuanBesar = document.getElementById('newSatuanBesar').value.trim();
         const jumlahSatuan = parseFloat(document.getElementById('newJumlahSatuan').value);
@@ -1160,6 +1272,9 @@ document.addEventListener('DOMContentLoaded', function () {
         showAlert('Konversi satuan ditambahkan', 'success');
     }
 
+    // Fungsi untuk menghapus konversi satuan dari daftar konversi satuan produk.
+    // Jika satuan sudah ada di database, juga menghapusnya di backend.
+    // Setelah dihapus, render ulang daftar satuan dan simpan tracking.
     async function hapusKonversiSatuan(id) {
         if (!state.newProduct.konversiSatuan) return;
 
@@ -1193,6 +1308,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menampilkan daftar konversi satuan pada tampilan (container konversiSatuanList).
+    // Jika tidak ada satuan, tampilkan pesan kosong. Juga update badge jumlah satuan pada tab.
     function renderKonversiSatuanList() {
         const container = document.getElementById('konversiSatuanList');
         if (!container) return;
@@ -1229,6 +1346,8 @@ document.addEventListener('DOMContentLoaded', function () {
         updateStepCounters();
     }
 
+    // Fungsi untuk mengupdate jumlah badge satuan pada tab dan counter satuan di form.
+    // Hanya menghitung satuan yang valid.
     function updateSatuanCounter() {
         const counter = document.getElementById('satuanCount');
         if (counter) {
@@ -1242,7 +1361,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // DISKON
+    // Fungsi untuk mengambil daftar diskon dari backend berdasarkan produkId.
+    // Data diskon yang diambil akan di-set ke state.newProduct.diskon dan dirender ulang ke tampilan.
     async function loadExistingDiskon(produkId) {
         try {
             const response = await fetch(`/api/produk/${produkId}/diskon`);
@@ -1265,6 +1385,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menambah diskon baru ke daftar diskon produk.
+    // Melakukan validasi input, menambah data ke state, reset form, dan render ulang daftar diskon.
     function tambahDiskonBaru() {
         const jumlahMinimum = parseInt(document.getElementById('newDiskonMinimum').value) || 0;
         const diskonPersen = parseFloat(document.getElementById('newDiskonPersen').value) || 0;
@@ -1272,6 +1394,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const mulai = document.getElementById('diskonMulai').value;
         const berakhir = document.getElementById('diskonBerakhir').value;
 
+        // Validasi input diskon
         if (jumlahMinimum <= 0) {
             showAlert('Masukkan jumlah minimum yang valid', 'warning');
             return;
@@ -1296,6 +1419,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        // Tambahkan diskon ke state
         state.newProduct.diskon.push({
             id: Date.now(),
             jumlah_minimum: jumlahMinimum,
@@ -1306,7 +1430,7 @@ document.addEventListener('DOMContentLoaded', function () {
             isExisting: false // <-- Penting!
         });
 
-        // Reset form
+        // Reset form input diskon
         document.getElementById('newDiskonMinimum').value = '';
         document.getElementById('newDiskonPersen').value = '';
         document.getElementById('diskonTanpaWaktu').checked = true;
@@ -1318,10 +1442,14 @@ document.addEventListener('DOMContentLoaded', function () {
         showAlert('Diskon ditambahkan', 'success');
     }
 
+    // Fungsi untuk menghapus diskon dari daftar diskon produk.
+    // Jika diskon sudah ada di database, juga menghapusnya di backend.
+    // Setelah dihapus, render ulang daftar diskon dan simpan tracking.
     async function hapusDiskon(id) {
         if (!state.newProduct.diskon) return;
         const diskonDihapus = state.newProduct.diskon.find(d => d.id === id);
 
+        // Jika data sudah ada di database, hapus di backend
         if (diskonDihapus && diskonDihapus.isExisting) {
             try {
                 await fetch(`/api/produk/diskon/${id}`, {
@@ -1349,6 +1477,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menampilkan daftar diskon pada tampilan (container diskonListContainer).
+    // Jika tidak ada diskon, tampilkan pesan kosong. Juga update badge jumlah diskon pada tab.
     function renderDiskonList() {
         const container = document.getElementById('diskonListContainer');
         if (!container) return;
@@ -1387,6 +1517,7 @@ document.addEventListener('DOMContentLoaded', function () {
         updateStepCounters(); // Update tab badges
     }
 
+    // Fungsi untuk mengupdate jumlah badge diskon pada tab dan counter diskon di form.
     function updateDiskonCounter() {
         const counter = document.getElementById('diskonCount');
         if (counter) {
@@ -1395,6 +1526,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menampilkan atau menyembunyikan input tanggal pada form diskon
+    // sesuai dengan status checkbox "Tanpa Waktu".
     function toggleWaktuDiskon() {
         const checkbox = document.getElementById('diskonTanpaWaktu');
         const container = document.getElementById('waktuDiskonContainer');
@@ -1404,7 +1537,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // SAVE PRODUCT - SIMPLIFIED
+    // Fungsi untuk menyimpan seluruh data produk (tambah atau edit, single/multi produk).
+    // Mengambil data dari form atau draft, melakukan validasi, lalu mengirim ke backend (PUT/POST).
+    // Setelah produk utama tersimpan, juga menyimpan data satuan, barcode, dan diskon terkait.
+    // Menampilkan notifikasi sukses/gagal dan reload data setelah selesai.
     async function saveCompleteProduct() {
         const form = document.getElementById('formTambahProduk');
         const isEditMode = state.selectedProduk && state.selectedProduk.length > 0;
@@ -1421,7 +1557,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const produkList = isEditMode ? state.selectedProduk : [null];
 
         try {
-
             for (const produk of produkList) {
                 let produkId = produk ? produk.id : null;
                 let produkData, barcodes, konversiSatuan, diskon;
@@ -1505,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     result = await response.json();
                     produkId = result.data.id;
 
-                    // 1. Tracking tambah produk
+                    // Tracking tambah produk
                     await saveTracking({
                         tipe: 'Produk',
                         keterangan: `Produk baru "${produkData.nama_produk}" ditambahkan`,
@@ -1519,7 +1654,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(result.message || 'Gagal menyimpan');
                 }
 
-                // 2. Simpan satuan baru & tracking
+                // Simpan satuan baru & tracking
                 if (konversiSatuan && konversiSatuan.length > 0) {
                     for (const konversi of konversiSatuan) {
                         await fetch('/api/produk/satuan', {
@@ -1536,7 +1671,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             })
                         });
 
-                        // Tracking satuan
                         await saveTracking({
                             tipe: 'Produk',
                             keterangan: `Satuan "${konversi.satuan_besar}" ditambahkan ke produk "${produkData.nama_produk}"`,
@@ -1547,7 +1681,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
 
-                // 3. Simpan barcode baru & tracking
+                // Simpan barcode baru & tracking
                 if (barcodes && barcodes.length > 0) {
                     for (const barcode of barcodes) {
                         await fetch('/api/produk/barcode', {
@@ -1563,7 +1697,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             })
                         });
 
-                        // Tracking barcode
                         await saveTracking({
                             tipe: 'Produk',
                             keterangan: `Barcode "${barcode.kode_barcode}" ditambahkan ke produk "${produkData.nama_produk}"`,
@@ -1574,7 +1707,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
 
-                // 4. Simpan diskon baru & tracking
+                // Simpan diskon baru & tracking
                 if (diskon && diskon.length > 0) {
                     for (const d of diskon) {
                         await fetch('/api/produk/diskon', {
@@ -1593,7 +1726,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             })
                         });
 
-                        // Tracking diskon
                         await saveTracking({
                             tipe: 'Produk',
                             keterangan: `Diskon ${d.diskon}% ditambahkan ke produk "${produkData.nama_produk}"`,
@@ -1602,7 +1734,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             nama_produk: produkData.nama_produk
                         });
                     }
-
                 }
             }
 
@@ -1631,7 +1762,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // SELECTION MANAGEMENT
+    // Fungsi untuk menangani klik pada baris tabel produk.
+    // Jika klik pada baris (bukan checkbox), akan toggle checkbox dan update selection.
     function handleTableClick(e) {
         const row = e.target.closest('tr');
         if (!row || !row.dataset.id) return;
@@ -1645,6 +1777,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menangani perubahan pada checkbox baris produk.
+    // Menambah atau menghapus produk dari daftar produk yang dipilih (state.selectedProduk).
     function handleRowCheckboxChange(checkbox) {
         const produkId = parseInt(checkbox.dataset.id);
         const produk = state.allProducts.find(p => p.id === produkId);
@@ -1660,6 +1794,8 @@ document.addEventListener('DOMContentLoaded', function () {
         updateSelectedCounter();
     }
 
+    // Fungsi untuk menangani perubahan pada checkbox "select all" di tabel produk.
+    // Akan memilih atau membatalkan semua produk di halaman saat ini.
     function handleSelectedRow() {
         const checkboxes = document.querySelectorAll('.row-checkbox');
         const isChecked = DOM.table.selectAll.checked;
@@ -1682,6 +1818,8 @@ document.addEventListener('DOMContentLoaded', function () {
         updateSelectedCounter();
     }
 
+    // Fungsi untuk mengupdate tampilan jumlah produk yang dipilih pada UI.
+    // Menampilkan atau menyembunyikan counter sesuai jumlah produk yang dipilih.
     function updateSelectedCounter() {
         const selectedCount = state.selectedProduk.length;
         const counterElement = document.getElementById('selectedCounter');
@@ -1691,18 +1829,17 @@ document.addEventListener('DOMContentLoaded', function () {
             counterElement.style.display = selectedCount > 0 ? 'inline' : 'none';
         }
 
+        // Contoh: bisa juga mengaktifkan/menonaktifkan tombol aksi lain berdasarkan selection
         // const deleteBtn = document.getElementById('hapusProdukBtn');
         // if (deleteBtn) {
         //     deleteBtn.disabled = selectedCount === 0;
         // }
-
-        // const restokBtn = document.getElementById('restokProdukBtn');
-        // if (restokBtn) {
-        //     restokBtn.disabled = selectedCount === 0;
-        // }
     }
 
-    // EDIT MODE - RESTORED IMPORTANT FUNCTION
+    // Fungsi untuk mengaktifkan mode edit pada tabel produk.
+    // Membuat setiap sel dengan class .editable-cell menjadi editable, menambahkan style khusus,
+    // dan memasang event listener untuk keypress, blur, dan focus pada sel.
+    // Menampilkan notifikasi bahwa mode edit aktif.
     function enterEditMode() {
         state.isEditMode = true;
 
@@ -1720,18 +1857,18 @@ document.addEventListener('DOMContentLoaded', function () {
             cell.style.border = '1px dashed #007bff';
             cell.style.cursor = 'text';
 
-            // Remove existing listeners untuk avoid duplicate
+            // Hapus event listener lama untuk menghindari duplikasi
             cell.removeEventListener('keypress', handleCellKeypress);
             cell.removeEventListener('blur', handleCellBlur);
             cell.removeEventListener('focus', handleCellFocus);
 
-            // Add event listeners
+            // Tambahkan event listener baru
             cell.addEventListener('keypress', handleCellKeypress);
             cell.addEventListener('blur', handleCellBlur);
             cell.addEventListener('focus', handleCellFocus);
         });
 
-        // Success notification
+        // Notifikasi sukses mode edit aktif
         Swal.fire({
             title: 'Mode Edit Aktif!',
             text: 'Klik sel untuk mengedit data. Tekan Enter atau klik di luar sel untuk menyimpan.',
@@ -1743,6 +1880,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Fungsi untuk menonaktifkan mode edit pada tabel produk.
+    // Membuat sel tidak lagi editable, menghapus style khusus, dan menghapus event listener.
+    // Menampilkan notifikasi bahwa mode edit dinonaktifkan.
     function exitEditMode() {
         state.isEditMode = false;
 
@@ -1760,13 +1900,13 @@ document.addEventListener('DOMContentLoaded', function () {
             cell.style.border = '';
             cell.style.cursor = '';
 
-            // Remove event listeners
+            // Hapus event listener
             cell.removeEventListener('keypress', handleCellKeypress);
             cell.removeEventListener('blur', handleCellBlur);
             cell.removeEventListener('focus', handleCellFocus);
         });
 
-        // Success notification
+        // Notifikasi sukses mode edit dinonaktifkan
         Swal.fire({
             title: 'Mode Edit Dinonaktifkan',
             text: 'Tabel kembali ke mode normal',
@@ -1778,6 +1918,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Fungsi event handler untuk keypress pada sel editable.
+    // Jika tombol Enter ditekan, simpan perubahan dengan blur (keluar dari sel).
     function handleCellKeypress(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1785,10 +1927,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi event handler untuk blur pada sel editable.
+    // Saat sel kehilangan fokus, simpan perubahan yang dilakukan pada sel tersebut.
     function handleCellBlur(e) {
         saveCellEdit(e.target);
     }
 
+    // Fungsi event handler untuk focus pada sel editable.
+    // Saat sel mendapat fokus, hilangkan format pada field harga dan ambil angka pada field stok.
+    // Juga mengubah background sel untuk menandakan sedang diedit.
     function handleCellFocus(e) {
         const cell = e.target;
         const field = cell.dataset.field;
@@ -1810,7 +1957,9 @@ document.addEventListener('DOMContentLoaded', function () {
         cell.style.backgroundColor = '#fff3cd';
     }
 
-    // DELETE FUNCTION - RESTORED
+    // Fungsi untuk menghapus produk yang dipilih (multi-delete).
+// Menampilkan konfirmasi dengan password, mengirim permintaan hapus ke backend,
+// menampilkan notifikasi sukses/gagal, dan reload data setelah selesai.
     async function deleteSelected() {
         if (state.selectedProduk.length === 0) {
             await Swal.fire({
@@ -1822,11 +1971,10 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Prepare product list for display
+        // Tampilkan konfirmasi dan input password sebelum hapus
         const produkNames = state.selectedProduk.slice(0, 3).map(p => p.nama_produk);
         const extraCount = state.selectedProduk.length > 3 ? state.selectedProduk.length - 3 : 0;
 
-        // SweetAlert konfirmasi dengan input password
         const result = await Swal.fire({
             title: 'Konfirmasi Hapus Produk',
             html: `
@@ -1869,7 +2017,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Jika user klik batal
+        // Jika user batal, keluar
         if (!result.isConfirmed) {
             return;
         }
@@ -1880,6 +2028,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const produkIds = state.selectedProduk.map(p => p.id);
             const allProdukNames = state.selectedProduk.map(p => p.nama_produk);
 
+            // Simpan tracking penghapusan
             await saveTracking({
                 tipe: 'Produk',
                 keterangan: `Produk "${allProdukNames.join(', ')}" dihapus permanen`,
@@ -1888,6 +2037,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 nama_produk: allProdukNames.join(', ')
             });
 
+            // Kirim permintaan hapus ke backend
             const response = await fetch('/api/produk/delete-multiple', {
                 method: 'DELETE',
                 headers: {
@@ -1901,23 +2051,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
             });
 
-            // PERBAIKI: Check if response is JSON
+            // Cek response JSON
             const contentType = response.headers.get('content-type');
             let responseData;
-
             if (contentType && contentType.includes('application/json')) {
                 responseData = await response.json();
             } else {
-                // If not JSON, get text and log it
                 const responseText = await response.text();
                 console.error('Non-JSON response:', responseText);
                 throw new Error(`Server error: ${response.status} - ${responseText.substring(0, 100)}`);
             }
 
-            console.log('Response data:', responseData); // Debug log
-
             if (response.ok && responseData.success) {
-                // Success notification
+                // Notifikasi sukses
                 await Swal.fire({
                     title: 'Berhasil!',
                     text: `${state.selectedProduk.length} produk berhasil dihapus dari sistem.`,
@@ -1933,7 +2079,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateSelectedCounter();
                 await loadData(state.currentSort.field, state.currentSort.direction);
             } else if (response.status === 401) {
-                // UNAUTHORIZED: Password salah
+                // Jika password salah
                 await Swal.fire({
                     title: 'Password Salah!',
                     html: `
@@ -1953,7 +2099,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     cancelButtonColor: '#6c757d'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Panggil fungsi delete lagi untuk retry
                         setTimeout(() => deleteSelected(), 500);
                     }
                 });
@@ -1964,7 +2109,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             console.error('Delete error:', error);
 
-            // Error notification dengan detail lebih lengkap
+            // Notifikasi error detail
             await Swal.fire({
                 title: 'Gagal Menghapus!',
                 html: `
@@ -1985,43 +2130,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // EXPORT FUNCTIONS - KEEP AS IS
-    function exportToExcel() {
-        try {
-            const currentData = getCurrentFilteredData();
-            if (currentData.length === 0) {
-                showAlert('Tidak ada data untuk diekspor', 'warning');
-                return;
-            }
-
-            const wb = XLSX.utils.book_new();
-
-            const exportData = currentData.map((item, index) => ({
-                'No': index + 1,
-                'Nama Produk': item.nama_produk || '',
-                'Kategori': item.kategori || '',
-                'Supplier': item.supplier || '',
-                'Satuan': item.satuan || '',
-                'Stok': item.stok || 0,
-                'Harga Beli': item.harga_beli || 0,
-                'Harga Jual': item.harga_jual || 0
-            }));
-
-
-
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            XLSX.utils.book_append_sheet(wb, ws, 'Data Produk');
-
-            const filename = `data_produk_${new Date().toISOString().slice(0, 10)}.xlsx`;
-            XLSX.writeFile(wb, filename);
-
-            showAlert('Excel berhasil diunduh', 'success');
-
-        } catch (error) {
-            showAlert('Gagal export Excel: ' + error.message, 'danger');
-        }
-    }
-
+    // Fungsi untuk export data produk ke PDF.
+    // Mengambil data yang sudah difilter, membuat file PDF dengan jsPDF dan autoTable,
+    // lalu mengunduh file PDF ke user.
     function exportToPdf() {
         try {
             const currentData = getCurrentFilteredData();
@@ -2063,6 +2174,48 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function exportToExcel() {
+        const currentData = getCurrentFilteredData();
+        if (currentData.length === 0) {
+            showAlert('Tidak ada data untuk diekspor', 'warning');
+            return;
+        }
+
+        // Siapkan data untuk sheet
+        const sheetData = [
+            ['No', 'Nama Produk', 'Kategori', 'Supplier', 'Satuan', 'Stok', 'Harga Beli', 'Harga Jual', 'Diskon']
+        ];
+        currentData.forEach((item, idx) => {
+            // Gabungkan diskon jadi string
+            let diskonStr = '-';
+            if (Array.isArray(item.diskon) && item.diskon.length > 0) {
+                diskonStr = item.diskon.map(d => `${d.diskon}% min ${d.jumlah_minimum}`).join(', ');
+            }
+            sheetData.push([
+                idx + 1,
+                item.nama_produk || '',
+                item.kategori || '',
+                item.supplier || '',
+                item.satuan || '',
+                item.stok || 0,
+                item.harga_beli || 0,
+                item.harga_jual || 0,
+                diskonStr
+            ]);
+        });
+
+        // Buat workbook dan sheet
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        XLSX.utils.book_append_sheet(wb, ws, 'Produk');
+
+        // Download file
+        XLSX.writeFile(wb, `data_produk_${new Date().toISOString().slice(0,10)}.xlsx`);
+        showAlert('Excel berhasil diunduh', 'success');
+    }
+
+    // Fungsi untuk mengambil data produk yang sudah difilter berdasarkan pencarian, kategori, dan supplier.
+    // Digunakan untuk menampilkan tabel, export, dan statistik.
     function getCurrentFilteredData() {
         const searchTerm = document.getElementById('searchProdukInput').value.toLowerCase().trim();
         const kategori = DOM.filters.kategori.value;
@@ -2090,7 +2243,8 @@ document.addEventListener('DOMContentLoaded', function () {
         return filteredData;
     }
 
-    // UTILITY FUNCTIONS
+    // Fungsi untuk mengisi filter kategori dan supplier pada UI berdasarkan data produk yang ada.
+    // Juga menghitung dan menampilkan total produk, stok, modal, dan nilai produk.
     function populateFilters(data) {
         // Kategori
         const categories = [...new Set(data.map(item => item.kategori).filter(Boolean))];
@@ -2124,11 +2278,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (elements.totalNilaiProduk) elements.totalNilaiProduk.textContent = formatCurrency(totals.nilaiProduk);
     }
 
+    // Fungsi untuk memformat angka menjadi format mata uang Rupiah.
+    // Contoh: 15000 => "Rp 15.000"
     function formatCurrency(amount) {
         if (!amount || amount === 0) return 'Rp 0';
         return 'Rp ' + parseInt(amount).toLocaleString('id-ID');
     }
 
+    // Fungsi untuk memformat tanggal relatif dari sekarang (misal: "2 hari lalu", "Baru saja", dll)
     function formatRelativeDate(dateString) {
         if (!dateString) return '';
 
@@ -2150,6 +2307,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return `${Math.ceil(diffDay / 365)} tahun lalu`;
     }
 
+    // Fungsi untuk memformat tanggal ke format lokal Indonesia (misal: "05 Agu 2025")
     function formatDate(dateString) {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -2160,6 +2318,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Fungsi untuk memasang event listener pada elemen-elemen di modal tambah/edit produk.
+    // Termasuk formatting currency, update satuan, barcode, diskon, dan lain-lain.
     function setupModalEventListeners() {
         // Currency formatting dengan clear value
         document.querySelectorAll('.currency-input').forEach(input => {
@@ -2179,15 +2339,12 @@ document.addEventListener('DOMContentLoaded', function () {
             input.setAttribute('autocapitalize', 'off');
             input.setAttribute('autocorrect', 'off');
             input.setAttribute('spellcheck', 'false');
-
-            // Remove any stored values
             input.removeAttribute('value');
         });
 
         // Margin calculation
         const hargaBeli = document.querySelector('[name="harga_beli"]');
         const hargaJual = document.querySelector('[name="harga_jual"]');
-
         if (hargaBeli && hargaJual) {
             [hargaBeli, hargaJual].forEach(input => {
                 input.removeEventListener('input', calculateMargin);
@@ -2220,6 +2377,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk memformat input currency (hanya angka, tanpa karakter lain, lalu format ribuan)
     function handleCurrencyInput(e) {
         let value = e.target.value.replace(/[^\d]/g, '');
         if (value) {
@@ -2227,6 +2385,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk mengupdate label satuan pada beberapa elemen di form/modal sesuai input satuan
     function handleSatuanInput(e) {
         const unit = e.target.value || 'pcs';
         const stokUnit = document.getElementById('stokUnit');
@@ -2238,11 +2397,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (diskonUnit) diskonUnit.textContent = unit;
     }
 
+    // Fungsi untuk menampilkan preview barcode secara realtime saat input barcode berubah
     function handleBarcodeInput(e) {
         const code = e.target.value.trim();
         previewBarcodeRealtime(code);
     }
 
+    // Fungsi untuk menambah barcode baru saat tombol Enter ditekan di input barcode
     function handleBarcodeKeypress(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -2250,6 +2411,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menghitung margin (%) antara harga jual dan harga beli, lalu update preview di UI.
+    // Margin akan diberi warna hijau jika positif, merah jika negatif.
     function calculateMargin() {
         const hargaBeli = parseInt(document.querySelector('[name="harga_beli"]').value.replace(/[^\d]/g, '')) || 0;
         const hargaJual = parseInt(document.querySelector('[name="harga_jual"]').value.replace(/[^\d]/g, '')) || 0;
@@ -2264,6 +2427,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menghasilkan barcode acak 12 digit, memastikan tidak duplikat dengan barcode yang sudah ada.
+    // Barcode hasil generate langsung diisi ke input dan ditampilkan preview-nya.
     function generateRandomBarcode() {
         let barcode = '';
 
@@ -2272,18 +2437,20 @@ document.addEventListener('DOMContentLoaded', function () {
             barcode += Math.floor(Math.random() * 10);
         }
 
-        // Check duplikasi di barcodes yang sudah ada
+        // Cek duplikasi barcode
         if (state.newProduct.barcodes.find(b => b.kode_barcode === barcode)) {
             generateRandomBarcode(); // Generate ulang jika sama
             return;
         }
 
-        // Set ke input
+        // Set ke input dan tampilkan preview
         document.getElementById('newBarcodeInput').value = barcode;
         previewBarcodeRealtime(barcode);
         showAlert('Barcode: ' + barcode, 'success');
     }
 
+    // Fungsi untuk menambah barcode baru ke daftar barcode produk.
+    // Melakukan validasi agar barcode tidak kosong dan tidak duplikat, lalu render ulang daftar barcode.
     function tambahBarcodeBaru() {
         const input = document.getElementById('newBarcodeInput');
         const isUtama = document.getElementById('newBarcodeUtama').checked;
@@ -2316,11 +2483,13 @@ document.addEventListener('DOMContentLoaded', function () {
         showAlert('Barcode ditambahkan', 'success');
     }
 
+    // Fungsi untuk menampilkan preview barcode secara realtime di form/modal menggunakan JSBarcode.
+    // Jika kode valid, tampilkan barcode dalam canvas, jika tidak tampilkan pesan placeholder.
     function previewBarcodeRealtime(code) {
         const container = document.getElementById('barcodePreviewContainer');
 
         if (code && code.length > 3) {
-            // Create canvas element for barcode
+            // Buat canvas barcode
             container.innerHTML = `
                 <div class="barcode-preview text-center">
                     <div class="mb-2">
@@ -2330,15 +2499,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             `;
 
-            // Generate barcode using JSBarcode
+            // Generate barcode menggunakan JSBarcode
             try {
                 const canvas = document.getElementById('barcodeCanvas');
                 if (canvas && window.JsBarcode) {
                     JsBarcode(canvas, code, {
-                        format: "CODE128", // atau "EAN13", "UPC", dll
+                        format: "CODE128",
                         width: 2,
                         height: 50,
-                        displayValue: false, // Karena sudah ada text di bawah
+                        displayValue: false,
                         margin: 0,
                         background: "#ffffff",
                         lineColor: "#000000"
@@ -2359,6 +2528,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk mengupdate jumlah barcode pada badge di tab/modal.
+    // Mengambil jumlah barcode dari state dan update tampilan counter.
     function updateBarcodeCounter() {
         const counter = document.getElementById('barcodeCount');
         if (counter) {
@@ -2366,19 +2537,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menampilkan notifikasi/toast menggunakan SweetAlert2.
+    // Mendukung tipe: success, danger, warning, info.
     function showAlert(message, type = 'info') {
         const iconMap = {
             'success': 'success',
             'danger': 'error',
             'warning': 'warning',
             'info': 'info'
-        };
-
-        const colorMap = {
-            'success': '#198754',
-            'danger': '#dc3545',
-            'warning': '#ffc107',
-            'info': '#0dcaf0'
         };
 
         Swal.fire({
@@ -2395,6 +2561,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Fungsi async untuk menyimpan data tracking aktivitas ke backend.
+    // Digunakan untuk mencatat perubahan data produk (tambah, edit, hapus, dsb).
     async function saveTracking(trackingData) {
         try {
             await fetch('/api/tracking', {
@@ -2437,8 +2605,8 @@ document.addEventListener('DOMContentLoaded', function () {
             selectProdukHtml = `
                 <select id="selectRestokProduk" class="form-select form-select-sm ms-2" style="width:auto;display:inline-block;min-width:120px;">
                     ${selected.map((p, idx) =>
-                        `<option value="${idx}">${p.nama_produk || 'Produk Tanpa Nama'}</option>`
-                    ).join('')}
+                `<option value="${idx}">${p.nama_produk || 'Produk Tanpa Nama'}</option>`
+            ).join('')}
                 </select>
             `;
         }
@@ -2453,7 +2621,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Event: Ganti produk di select
         if (selected.length > 1) {
             const selectProduk = document.getElementById('selectRestokProduk');
-            selectProduk.addEventListener('change', function() {
+            selectProduk.addEventListener('change', function () {
                 renderRestokForm(selected[this.value]);
             });
         }
@@ -2576,7 +2744,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Handler submit restok (delegasi karena form dinamis)
-    document.body.addEventListener('submit', async function(e) {
+    document.body.addEventListener('submit', async function (e) {
         if (e.target && e.target.id === 'formRestokProduk') {
             e.preventDefault();
             const container = document.getElementById('restokProdukList');
@@ -2717,7 +2885,7 @@ document.addEventListener('DOMContentLoaded', function () {
         container.innerHTML = html;
     }
 
-    document.body.addEventListener('submit', async function(e) {
+    document.body.addEventListener('submit', async function (e) {
         if (e.target && e.target.id === 'formReturProduk') {
             e.preventDefault();
             const container = document.getElementById('returProdukList');

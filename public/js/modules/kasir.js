@@ -1,22 +1,16 @@
 document.addEventListener('DOMContentLoaded', function () {
-    // === DOM SELECTOR ===
-    const DOM = {
-        meta: {
-            csrfToken: document.querySelector('meta[name="csrf-token"]').content
-        },
-        barcodeInput: document.getElementById('barcodeInput'),
-        previewNamaProduk: document.getElementById('previewNamaProduk'),
-        previewHargaProduk: document.getElementById('previewHargaProduk'),
-        previewQty: document.getElementById('previewQty'),
-        previewSatuan: document.getElementById('previewSatuan'),
-        btnQtyPlus: document.getElementById('btnQtyPlus'),
-        btnQtyMinus: document.getElementById('btnQtyMinus'),
-        btnTambahKeranjang: document.getElementById('btnTambahKeranjang'),
-        keranjangTable: document.getElementById('keranjangTable'),
-        totalBelanja: document.getElementById('totalBelanja')
-    };
+    if (localStorage.getItem('loginSuccess') === '1') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Login berhasil!',
+            showConfirmButton: false,
+            timer: 2000
+        });
+        localStorage.removeItem('loginSuccess');
+    }
 
-    // === STATE ===
     const state = {
         produkList: [],
         keranjang: [],
@@ -24,8 +18,22 @@ document.addEventListener('DOMContentLoaded', function () {
         hutangData: null
     };
 
-    // === FUNCTIONS ===
-
+    const DOM = {
+        barcodeInput: document.getElementById('barcodeInput'),
+        btnTambahKeranjang: document.getElementById('btnTambahKeranjang'),
+        keranjangTable: document.getElementById('keranjangTable'),
+        totalBelanja: document.getElementById('totalBelanja'),
+        previewNamaProduk: document.getElementById('previewNamaProduk'),
+        previewHargaProduk: document.getElementById('previewHargaProduk'),
+        previewQty: document.getElementById('previewQty'),
+        previewSatuan: document.getElementById('previewSatuan'),
+        btnQtyPlus: document.getElementById('btnQtyPlus'),
+        btnQtyMinus: document.getElementById('btnQtyMinus'),
+        meta: {
+            csrfToken: document.querySelector('meta[name="csrf-token"]')?.content || ''
+        }
+    };
+    // Fungsi untuk mencari produk berdasarkan input (barcode/nama)
     function cariProduk(input) {
         input = (input || '').trim().toLowerCase();
         if (!input) return null;
@@ -37,28 +45,30 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Fungsi untuk mendapatkan harga produk berdasarkan satuan yang dipilih
     function getHargaBySatuan(produk, satuan) {
-        // Contoh: jika satuan besar, harga dikali konversi (implementasi sesuai kebutuhan)
-        // Misal: produk.harga_jual = harga per satuan dasar, konversi_satuan = [{satuan_besar, konversi}]
         if (!produk || !satuan) return 0;
-        if (satuan === produk.satuan) return parseInt(produk.harga); // satuan dasar
+        // Jika satuan dasar
+        if (satuan === produk.satuan) return parseInt(produk.harga);
+        // Jika satuan besar, cari di konversi_satuan
         if (produk.konversi_satuan) {
             const konv = produk.konversi_satuan.find(k => k.satuan_besar === satuan);
-            if (konv) return parseInt(produk.harga) * parseInt(konv.konversi);
+            if (konv && konv.harga_jual) return parseInt(konv.harga_jual);
+            // Jika tidak ada harga_jual di konversi, fallback ke harga satuan dasar x konversi
+            if (konv && konv.konversi) return parseInt(produk.harga) * parseInt(konv.konversi);
         }
         return parseInt(produk.harga);
     }
 
+    // Fungsi untuk mengupdate tampilan mini preview produk di kasir
     function updateMiniPreview(produk) {
         state.previewProduk = produk;
         const satuan = produk && produk.satuan ? produk.satuan : 'pcs';
         let harga = produk ? parseInt(produk.harga) : 0;
         let qty = parseInt(DOM.previewQty.value) || 1;
-        // Jika satuan dipilih, update harga satuan
         if (produk && DOM.previewSatuan.value) {
             harga = getHargaBySatuan(produk, DOM.previewSatuan.value);
         }
-        // Harga total = harga satuan x qty
         const hargaTotal = harga * qty;
         DOM.previewNamaProduk.textContent = produk ? produk.nama : '-';
         DOM.previewHargaProduk.textContent = produk ? 'Rp' + hargaTotal.toLocaleString('id-ID') : 'Rp0';
@@ -73,6 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
         DOM.previewQty.value = 1;
     }
 
+    // Fungsi untuk merender isi keranjang belanja ke tabel
     function renderKeranjang() {
         const tbody = DOM.keranjangTable.querySelector('tbody');
         if (!tbody) return;
@@ -99,29 +110,27 @@ document.addEventListener('DOMContentLoaded', function () {
         tbody.querySelectorAll('button[data-idx]').forEach(btn => {
             btn.addEventListener('click', function() {
                 hapusKeranjang(parseInt(this.getAttribute('data-idx')));
+                showAlert('Produk dihapus dari daftar belanja', 'info');
             });
         });
     }
 
+    // Fungsi untuk menghapus item dari keranjang berdasarkan index
     function hapusKeranjang(idx) {
         state.keranjang.splice(idx, 1);
         renderKeranjang();
     }
 
+    // Fungsi untuk memproses transaksi (lunas/hutang), validasi dan tampilkan modal hutang jika perlu
     async function prosesTransaksi(status = 'lunas', pembeliData = null) {
-        // Validasi keranjang
         if (state.keranjang.length === 0) {
             showAlert('Keranjang belanja kosong!', 'warning');
             return;
         }
-        // Validasi uang customer
         const total = parseInt(DOM.totalBelanja.textContent.replace(/[^0-9]/g, '')) || 0;
         const bayar = parseInt(DOM.inputUangPembeli.value) || 0;
 
-        // Tentukan status
-        // let status = 'lunas';
         if (status === 'hutang') {
-            // Tampilkan modal hutang
             const modal = new bootstrap.Modal(document.getElementById('modalHutang'));
             modal.show();
             const jatuhTempoInput = document.getElementById('jatuhTempo');
@@ -130,7 +139,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 now.setDate(now.getDate() + 7);
                 jatuhTempoInput.value = now.toISOString().slice(0, 10);
             }
-            // Tunggu submit modal
             document.getElementById('formHutang').onsubmit = async function(e) {
                 e.preventDefault();
                 state.hutangData = {
@@ -140,13 +148,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 };
                 modal.hide();
                 await submitTransaksi(status, state.hutangData);
-                state.hutangData = null; // reset setelah submit
+                state.hutangData = null;
             };
             return;
         }
         await submitTransaksi(status, null);
     }
 
+    // Fungsi untuk submit data transaksi ke backend dan handle hasilnya
     async function submitTransaksi(status, hutangData) {
         const total = parseInt(DOM.totalBelanja.textContent.replace(/[^0-9]/g, '')) || 0;
         const bayar = parseInt(DOM.inputUangPembeli.value) || 0;
@@ -193,8 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const result = await res.json();
             if (result.success) {
                 showAlert('Transaksi berhasil disimpan!', 'success');
-
-                // Tracking transaksi (hanya sekali per transaksi, bukan per produk)
+                // Tracking transaksi (sekali per transaksi)
                 let trackingStatus, trackingKeterangan;
                 if (status === 'lunas') {
                     trackingStatus = 'Lunas';
@@ -203,7 +211,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     trackingStatus = 'Hutang';
                     trackingKeterangan = `Transaksi #${transaksiData.no_transaksi} dicatat sebagai hutang senilai Rp ${transaksiData.total.toLocaleString('id-ID')}`;
                 }
-
                 await saveTracking({
                     tipe: 'Transaksi',
                     keterangan: trackingKeterangan,
@@ -212,7 +219,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     produk_id: null,
                     nama_produk: null
                 });
-
                 state.keranjang = [];
                 renderKeranjang();
                 DOM.inputUangPembeli.value = '';
@@ -227,10 +233,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk mengubah tampilan tombol bayar sesuai status pembayaran (lunas/hutang)
     function updateButtonBayarStyle() {
         const total = parseInt(DOM.totalBelanja.textContent.replace(/[^0-9]/g, '')) || 0;
         const bayar = parseInt(DOM.inputUangPembeli.value) || 0;
-        const btn = document.getElementById('btnProsesBayarUtama'); // perbaiki id
+        const btn = document.getElementById('btnProsesBayarUtama');
         const textSpan = document.getElementById('textProsesBayar');
         if (!btn || !textSpan) return;
         if (bayar < total) {
@@ -246,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // === EVENT HANDLER SETUP ===
+    // Fungsi untuk setup semua event handler pada elemen kasir
     function setupEventListener() {
         DOM.barcodeInput.addEventListener('input', function() {
             const produk = cariProduk(this.value);
@@ -262,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const qty = parseInt(DOM.previewQty.value) || 1;
             const satuan = DOM.previewSatuan.value;
             const harga = getHargaBySatuan(produk, satuan);
-            // Gunakan produk.id sebagai pembeda utama
             const idx = state.keranjang.findIndex(item => item.produk_id === produk.id && item.satuan === satuan);
             if (idx > -1) {
                 state.keranjang[idx].qty += qty;
@@ -289,6 +295,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (DOM.inputKembalian) DOM.inputKembalian.value = 'Rp0';
             updateMiniPreview(null);
             updateButtonBayarStyle();
+            showAlert('Transaksi dibatalkan, keranjang dikosongkan', 'info');
         });
 
         DOM.btnQtyPlus.addEventListener('click', function() {
@@ -333,16 +340,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const total = parseInt(DOM.totalBelanja.textContent.replace(/[^0-9]/g, '')) || 0;
             const bayar = parseInt(DOM.inputUangPembeli.value) || 0;
             if (bayar < total) {
-                // Proses hutang (tampilkan modal hutang)
                 prosesTransaksi('hutang', null);
             } else {
-                // Proses lunas biasa
                 prosesTransaksi('lunas', null);
             }
         });
-
     }
 
+    // Fungsi untuk mengupdate harga preview produk sesuai satuan dan qty
     function updateHargaPreview() {
         const produk = state.previewProduk;
         if (!produk) {
@@ -356,25 +361,36 @@ document.addEventListener('DOMContentLoaded', function () {
         DOM.previewHargaProduk.textContent = 'Rp' + hargaTotal.toLocaleString('id-ID');
     }
 
+    // Fungsi untuk memuat daftar produk dari API dan simpan ke state
     async function loadProdukList() {
-        try {
-            const res = await fetch('/api/produk', {
-                credentials: 'same-origin'
-            });
-            const data = await res.json();
-            state.produkList = data.map(p => ({
-                id: p.id,
-                barcode: p.barcode_utama || '',
-                barcodes: (p.barcodes || []).map(bc => bc.kode_barcode),
-                nama: p.nama_produk,
-                harga: p.harga_jual,
-                satuan: [p.satuan, ...(p.konversi_satuan || []).map(k => k.satuan_besar)]
-            }));
-        } catch (e) {
-            alert('Gagal memuat data produk');
+    try {
+        const res = await fetch('/api/produk', {
+            credentials: 'same-origin'
+        });
+        if (!res.ok) {
+            throw new Error('Gagal memuat data produk');
         }
+        const data = await res.json();
+        // Ambil array produk dari data.data jika data bukan array
+        const produkArr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+        if (!Array.isArray(produkArr) || produkArr.length === 0) {
+            throw new Error('Data produk tidak valid');
+        }
+        state.produkList = produkArr.map(p => ({
+            id: p.id,
+            barcode: p.barcode_utama || '',
+            barcodes: (p.barcodes || []).map(bc => bc.kode_barcode),
+            nama: p.nama_produk,
+            harga: p.harga_jual,
+            satuan: [p.satuan, ...(p.konversi_satuan || []).map(k => k.satuan_besar)],
+            konversi_satuan: p.konversi_satuan || []
+        }));
+    } catch (e) {
+        showAlert('Gagal memuat data produk: ' + (e.message || e), 'error');
     }
+}
 
+    // Fungsi untuk mengambil nomor transaksi baru dari backend
     async function getNoTransaksiBaru() {
         try {
             const res = await fetch('/api/no-transaksi-baru', {
@@ -387,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Fungsi untuk menampilkan notifikasi/toast menggunakan SweetAlert2
     function showAlert(message, type = 'warning', duration = 3000) {
         Swal.fire({
             icon: type,
@@ -403,6 +420,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Fungsi untuk menyimpan data tracking aktivitas ke backend
     async function saveTracking(trackingData) {
         await fetch('/api/tracking', {
             method: 'POST',
@@ -418,7 +436,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Pada init():
+    // Fungsi inisialisasi utama: load produk, nomor transaksi, reset preview & keranjang, setup event
     async function init() {
         await loadProdukList();
         await getNoTransaksiBaru();
@@ -427,6 +445,6 @@ document.addEventListener('DOMContentLoaded', function () {
         setupEventListener();
     }
 
-    // Jalankan inisialisasi
+    // Jalankan inisialisasi saat halaman siap
     init();
 });

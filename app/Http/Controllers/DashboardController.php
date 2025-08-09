@@ -11,10 +11,14 @@ use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
+    // Menampilkan halaman utama dashboard (view)
     public function index(){
         return view('dashboard.index');
     }
 
+    // Mengambil data insight ringkasan untuk dashboard:
+    // - total produk, stok, modal, nilai produk, penjualan hari ini, produk terjual, keuntungan hari ini, rata-rata penjualan
+    // Data dikembalikan dalam bentuk JSON untuk kebutuhan frontend dashboard
     public function insight()
     {
         $total_produk = Produk::count();
@@ -49,6 +53,8 @@ class DashboardController extends Controller
         ]);
     }
 
+    // Mengambil data penjualan dan keuntungan untuk grafik dashboard berdasarkan range waktu (minggu, bulan, tahun)
+    // Data dikembalikan dalam bentuk array label, penjualan, dan keuntungan
     public function penjualan(Request $request)
     {
         $range = $request->get('range', 'minggu');
@@ -57,6 +63,7 @@ class DashboardController extends Controller
         $keuntungan = [];
 
         if ($range === 'minggu') {
+            // Data penjualan per hari dalam 1 minggu
             $labels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
             for ($i = 0; $i < 7; $i++) {
                 $date = now()->startOfWeek()->addDays($i)->toDateString();
@@ -69,6 +76,7 @@ class DashboardController extends Controller
                 }) : 0;
             }
         } elseif ($range === 'bulan') {
+            // Data penjualan per minggu dalam 1 bulan
             $labels = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4'];
             $start = now()->startOfMonth()->startOfDay();
             $endOfMonth = now()->endOfMonth()->endOfDay();
@@ -92,6 +100,7 @@ class DashboardController extends Controller
                 });
             }
         } elseif ($range === 'tahun') {
+            // Data penjualan per bulan dalam 1 tahun
             $labels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
             for ($i = 1; $i <= 12; $i++) {
                 $trx = Transaksi::whereMonth('tanggal', $i)->whereYear('tanggal', now()->year)->get();
@@ -111,6 +120,8 @@ class DashboardController extends Controller
         ]);
     }
 
+    // Mengambil daftar produk yang stoknya hampir habis (<= 5), maksimal 10 produk
+    // Data dikembalikan dalam bentuk JSON untuk kebutuhan notifikasi dashboard
     public function produkHampirHabis()
     {
         $produk = Produk::where('stok', '<=', 5)

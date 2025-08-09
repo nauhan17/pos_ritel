@@ -1,4 +1,16 @@
 document.addEventListener('DOMContentLoaded', function () {
+    if (localStorage.getItem('loginSuccess') === '1') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Login berhasil!',
+            showConfirmButton: false,
+            timer: 2000
+        });
+        localStorage.removeItem('loginSuccess');
+    }
+    // Fungsi untuk mengambil dan menampilkan ringkasan insight dashboard (total produk, stok, modal, dll)
     async function loadDashboardInsight() {
         try {
             const res = await fetch('/dashboard/insight');
@@ -17,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 2. Ambil data grafik penjualan (line chart)
+    // Fungsi untuk mengambil data grafik penjualan dan keuntungan, lalu update Chart.js
     async function loadPenjualanChart(range = 'minggu') {
         try {
             const res = await fetch(`/dashboard/penjualan?range=${range}`);
@@ -32,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 3. Ambil data produk hampir habis
+    // Fungsi untuk mengambil dan menampilkan daftar produk yang stoknya hampir habis
     async function loadProdukHampirHabis() {
         try {
             const res = await fetch('/dashboard/produk-hampir-habis');
@@ -51,13 +63,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 4. Format currency helper
+    // Fungsi helper untuk memformat angka ke format mata uang Rupiah
     function formatCurrency(amount) {
         if (!amount || amount === 0) return 'Rp 0';
         return 'Rp ' + parseInt(amount).toLocaleString('id-ID');
     }
 
-    // 5. Inisialisasi Chart.js (dengan data awal kosong)
+    // Inisialisasi Chart.js untuk grafik penjualan dan keuntungan (data awal kosong)
     const ctx = document.getElementById('chartPenjualan').getContext('2d');
     let chartPenjualan = new Chart(ctx, {
         type: 'line',
@@ -95,12 +107,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // 6. Event handler untuk select range grafik penjualan
+    // Event handler: saat user mengganti range grafik penjualan, muat ulang data grafik
     document.getElementById('penjualanRange').addEventListener('change', function() {
         loadPenjualanChart(this.value);
     });
 
-    // 7. Jalankan semua loader saat halaman siap
+    // Jalankan semua loader saat halaman siap (insight, grafik penjualan, produk hampir habis)
     loadDashboardInsight();
     loadPenjualanChart('minggu');
     loadProdukHampirHabis();

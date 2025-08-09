@@ -1,3 +1,5 @@
+/* Root & Layout */
+/* Variabel root dan pengaturan layout dasar */
 :root {
     --sidebar-width: 280px;
 }
@@ -6,23 +8,67 @@ body {
     overflow-x: hidden;
 }
 
-.table-edit-mode .editable-cell.editing {
+/* Responsive Table: wrap text and allow horizontal scroll on small screens */
+/* Membuat tabel responsif di layar kecil */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767.98px) {
+    /* Padding kecil untuk konten utama di mobile */
+    .main-content,
+    .container,
+    .container-fluid {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+
+    /* Sidebar disembunyikan di mobile */
+    .sidebar {
+        display: none;
+        /* Atau gunakan offcanvas Bootstrap */
+    }
+
+    /* Ukuran font dan padding tabel di mobile */
+    .table th,
+    .table td {
+        white-space: nowrap;
+        font-size: 13px;
+        padding: 0.5rem 0.5rem;
+    }
+
+    /* Ukuran tombol di mobile */
+    .btn,
+    .btn-group {
+        font-size: 13px;
+        padding: 0.4rem 0.7rem;
+    }
+}
+
+/* Table Edit Mode */
+/* Warna dan efek untuk sel tabel yang sedang diedit */
+.table-edit-mode .editable-cell.editing,
+[data-editing="true"] {
     background-color: #fff3cd !important;
     border: 2px dashed #ffc107;
     cursor: text;
 }
 
-.editable-cell.saving {
+.editable-cell.saving,
+[data-state="saving"] {
     background-color: #cff4fc !important;
     position: relative;
 }
 
-.editable-cell.saved {
+.editable-cell.saved,
+[data-state="saved"] {
     background-color: #d1e7dd !important;
     transition: background-color 0.3s ease;
 }
 
-.editable-cell.error {
+.editable-cell.error,
+[data-state="error"] {
     background-color: #f8d7da !important;
     border-color: #dc3545;
 }
@@ -32,57 +78,33 @@ body {
     outline-offset: 2px;
 }
 
+.editable-cell.edit-mode {
+    background: #e6f7ff;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.editable-cell.editing {
+    background: #fffbe6;
+    box-shadow: 0 0 0 2px #10B981;
+}
+
 /* Statistik cards */
+/* Efek hover dan transisi pada card statistik */
 .card {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Loading state untuk statistik */
+/* Efek loading dengan spinner pada statistik */
 .stat-loading {
     opacity: 0.6;
     position: relative;
-}
-
-/* Tambahkan di CSS file */
-[data-editing="true"] {
-    background-color: #fff3cd !important;
-    border: 2px dashed #ffc107;
-    cursor: text;
-}
-
-[data-state="saving"] {
-    background-color: #cff4fc !important;
-}
-
-[data-state="saved"] {
-    background-color: #d1e7dd !important;
-    transition: background-color 0.3s ease;
-}
-
-[data-state="error"] {
-    background-color: #f8d7da !important;
-    border-color: #dc3545;
-}
-
-[data-mode="bulk-edit"] {
-    border-left: 4px solid #17a2b8;
-}
-
-[data-margin-type="positive"] {
-    color: #198754 !important;
-}
-
-[data-margin-type="negative"] {
-    color: #dc3545 !important;
-}
-
-[data-margin-type="neutral"] {
-    color: #6c757d !important;
 }
 
 .stat-loading::after {
@@ -100,12 +122,19 @@ body {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* Edit mode banner */
-#editModeBanner {
+/* Banner notifikasi untuk mode edit/bulk edit */
+#editModeBanner,
+#bulk-edit-notice {
     border-left: 4px solid #17a2b8;
     animation: slideDown 0.3s ease;
 }
@@ -115,56 +144,17 @@ body {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
 
+/* Modal scrollable body */
+/* Membuat body modal bisa discroll */
+#baruProdukModal .modal-body,
 .modal-body {
-    display: flex;
-    height: 70vh;
-    overflow: hidden;
-    padding: 0 0 0 0;
-}
-
-.bulk-edit-mode {
-    border-left: 4px solid #17a2b8;
-    padding-left: 15px;
-}
-
-.bulk-edit-mode .form-control {
-    border-color: #17a2b8;
-}
-
-.konversi-item, .barcode-item, .diskon-item {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 8px;
-    transition: all 0.2s ease;
-}
-
-.konversi-item:hover, .barcode-item:hover, .diskon-item:hover {
-    background: #e9ecef;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.badge-sm {
-    font-size: 0.7em;
-}
-
-#bulk-edit-notice {
-    border-left: 4px solid #17a2b8;
-}
-
-.accordion-button:not(.collapsed) {
-    background-color: #e7f3ff;
-    color: #0c63e4;
-}
-
-#baruProdukModal .modal-body {
     height: 70vh !important;
     max-height: 70vh;
     overflow-y: auto;
@@ -172,28 +162,13 @@ body {
     display: block !important;
 }
 
-.btn-editable {
-    width:35px;
-    height:35px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
-}
-
-.btn-editable i {
-    margin: 0;
-    padding: 0;
-    line-height: 1;
-    color: #ffffff;
-}
-
-/* Sticky sidebar di modal */
+/* Sidebar Modal */
+/* Pengaturan sidebar pada modal produk */
 #produkSidebarMenu {
     position: sticky;
     top: 0;
     align-self: flex-start;
-    height: 70vh; /* atau 100% jika modal full */
+    height: 70vh;
     overflow-y: auto;
     background: #fff;
     z-index: 2;
@@ -208,33 +183,86 @@ body {
     background: #fff;
 }
 
-.btn-toggle-collapse {
-    padding: 2px 6px;
-    border: none;
-    background: none;
-}
-.tab-pane-inner {
-    transition: all 0.2s;
+/* Bulk Edit */
+/* Tampilan khusus saat mode bulk edit */
+.bulk-edit-mode {
+    border-left: 4px solid #17a2b8;
+    padding-left: 15px;
 }
 
-.img-profile {
-    width: 30px;
+.bulk-edit-mode .form-control {
+    border-color: #17a2b8;
 }
 
-.img-logo {
-    width: 150px;
+/* Item List */
+/* Tampilan item pada list konversi/barcode/diskon */
+.konversi-item,
+.barcode-item,
+.diskon-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
 }
 
-.sidebar {
-    width: var(--sidebar-width);
-    height: 100vh;
-    position: fixed; /* Pastikan ini ada */
-    left: 0; /* Pastikan sidebar menempel di kiri */
-    top: 0;
+.konversi-item:hover,
+.barcode-item:hover,
+.diskon-item:hover {
+    background: #e9ecef;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Badge */
+/* Ukuran badge kecil */
+.badge-sm {
+    font-size: 0.7em;
+}
+
+/* Accordion */
+/* Warna background dan teks saat accordion terbuka */
+.accordion-button:not(.collapsed) {
+    background-color: #e7f3ff;
+    color: #0c63e4;
+}
+
+/* Button Editable */
+/* Tombol edit bulat dengan icon di tengah */
+.btn-editable {
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
 }
 
-.sidebar-link {
+.btn-editable i {
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    color: #ffffff;
+}
+
+/* Sidebar normal dan mini */
+/* Pengaturan sidebar utama dan sidebar mini */
+.sidebar {
+    width: 240px;
+    height: 100vh;
+    min-height: 100vh;
+    transition: width 0.2s;
+    z-index: 1030;
+    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
+    color: #a0a3bd;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+.sidebar .sidebar-link {
     color: #a0a3bd;
     transition: all 0.2s ease;
     border-radius: 8px;
@@ -243,36 +271,90 @@ body {
     overflow: hidden;
 }
 
-.sidebar-link:hover {
+.sidebar .sidebar-link:hover,
+.sidebar .sidebar-link.active {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.1);
     transform: translateX(5px);
 }
 
-.sidebar-link.active {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.1);
+.sidebar .img-logo {
+    width: 150px;
 }
 
+/* Sidebar mini: hanya icon yang tampil */
+.sidebar.sidebar-mini {
+    width: 64px !important;
+    transition: width 0.2s;
+}
+
+.sidebar.sidebar-mini .img-logo,
+.sidebar.sidebar-mini .sidebar-link span,
+.sidebar.sidebar-mini .dropdown span,
+.sidebar.sidebar-mini .dropdown-toggle::after {
+    display: none !important;
+}
+
+.sidebar.sidebar-mini .sidebar-link {
+    justify-content: center !important;
+    text-align: center;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+
+.sidebar.sidebar-mini .dropdown-menu {
+    left: 60px !important;
+}
+
+/* Main Content */
+/* Pengaturan margin dan posisi konten utama */
 .main-content {
-    /* border: solid 1px; */
+    transition: margin-left 0.2s;
+    margin-left: 240px;
+}
+
+.sidebar.sidebar-mini~.main-content,
+body.sidebar-mini .main-content {
+    margin-left: 64px !important;
+}
+
+/* Responsive: sidebar jadi overlay di mobile */
+@media (max-width: 991.98px) {
+    .sidebar {
+        left: -240px;
+        transition: left 0.2s;
+        width: 240px;
+        position: fixed;
+    }
+
+    .sidebar.active {
+        left: 0;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+    }
+}
+
+/* Main Content */
+.main-content {
     position: static;
     height: 100vh;
-    margin-left: 280px;
+    margin-left: 240px;
     padding-inline: 10px;
+    transition: margin-left 0.2s;
+}
+
+.sidebar.sidebar-mini~.main-content {
+    margin-left: 64px !important;
 }
 
 .navbar-content {
-    /* border: solid 1px; */
     margin-left: 225px;
 }
 
-/* .navbar-partials {
-    background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
-    border-radius: 5px;
-} */
-
-/* INSIGHT CARD */
+/* Statistik Card */
+/* Tampilan card statistik di dashboard */
 .stat {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     padding: 20px;
@@ -282,7 +364,6 @@ body {
 .stat-icon {
     font-size: 40px;
     color: #CBD5E1;
-    /* Example color - change as needed */
 }
 
 .stat-value {
@@ -295,6 +376,8 @@ body {
     color: #CBD5E1;
 }
 
+/* Custom Select */
+/* Tampilan custom untuk select */
 .custom-select-style {
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -307,29 +390,8 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-.col-custom {
-    width: 20%;
-}
-
-.sortable:hover {
-            background-color: #f8f9fa;
-            cursor: pointer;
-}
-
-.sort-icon {
-    margin-left: 5px;
-    color: #6c757d;
-}
-
-.sort-icon2 {
-    margin-left: 5px;
-    color: #6c757d;
-}
-
-.editable-cell:hover {
-    background-color: #e9f7fe;
-}
-
+/* Table & Row */
+/* Pengaturan tabel dan baris */
 table {
     border: solid 1px;
     margin-top: 10px;
@@ -352,9 +414,15 @@ tr:hover {
 
 .row-checkbox {
     cursor: pointer;
-    pointer-events: auto; /* Memastikan checkbox tetap bisa diklik */
+    pointer-events: auto;
 }
 
+.editable-cell:hover {
+    background-color: #e9f7fe;
+}
+
+/* Button Custom & Hover */
+/* Tombol custom dan efek hover */
 .btn-custom {
     color: white !important;
     background: linear-gradient(135deg, #1a1c2e 0%, #16181f 100%);
@@ -376,6 +444,8 @@ tr:hover {
     color: white !important;
 }
 
+/* Alert */
+/* Pengaturan notifikasi alert/toast */
 .alert-container {
     position: fixed;
     top: 20px;
@@ -396,28 +466,27 @@ tr:hover {
 }
 
 .alert-success {
-    background-color: #4CAF50; /* Hijau */
+    background-color: #4CAF50;
     color: white;
 }
 
 .alert-error {
-    background-color: #F44336; /* Merah */
+    background-color: #F44336;
     color: white;
 }
 
-/* Animasi muncul dari kanan */
 @keyframes slideIn {
     from {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
     }
 }
 
-/* Animasi menghilang */
 @keyframes fadeOut {
     to {
         opacity: 0;
@@ -428,7 +497,6 @@ tr:hover {
     animation: fadeOut 0.5s ease-out forwards;
 }
 
-/* Tombol tutup */
 .alert .close-btn {
     background: none;
     border: none;
@@ -438,12 +506,65 @@ tr:hover {
     margin-left: 10px;
 }
 
-.editable-cell.edit-mode {
-    background: #e6f7ff;
-    cursor: pointer;
-    transition: background 0.2s;
+/* Misc */
+/* Kolom custom, efek sortable, dan warna margin */
+.col-custom {
+    width: 20%;
 }
-.editable-cell.editing {
-    background: #fffbe6;
-    box-shadow: 0 0 0 2px #10B981;
+
+.sortable:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+.sort-icon,
+.sort-icon2 {
+    margin-left: 5px;
+    color: #6c757d;
+}
+
+[data-margin-type="positive"] {
+    color: #198754 !important;
+}
+
+[data-margin-type="negative"] {
+    color: #dc3545 !important;
+}
+
+[data-margin-type="neutral"] {
+    color: #6c757d !important;
+}
+
+.tab-pane-inner {
+    transition: all 0.2s;
+}
+
+.img-profile {
+    width: 30px;
+}
+
+.img-logo {
+    width: 150px;
+}
+
+/* Tombol minimize sidebar: warna sama seperti icon menu */
+.btn-toggle-collapse {
+    padding: 2px 6px;
+    border: none;
+    background: none;
+}
+
+.btn-toggle-collapse {
+    background: none;
+    border: none;
+    color: #a0a3bd !important;
+    /* sama seperti .sidebar-link */
+    font-size: 1.2rem;
+    z-index: 1040;
+    transition: color 0.2s;
+}
+
+.btn-toggle-collapse:hover,
+.btn-toggle-collapse:focus {
+    color: #ffffff !important;
 }

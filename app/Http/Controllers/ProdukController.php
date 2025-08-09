@@ -11,22 +11,21 @@ use App\Models\DetailRestoks;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProdukController extends Controller
 {
-    //
+    // Menampilkan halaman utama produk dengan semua data produk
     public function index()
     {
         $produks = Produk::all();
         return view('produk.index', compact('produks'));
     }
 
+    // Endpoint API untuk mengambil data produk (dengan relasi dan multi harga), sorting, dan validasi akses
     public function endpoint(Request $request){
         if (!session('pengguna')) {
             return response()->json(['message' => 'Session pengguna tidak ditemukan'], 401);
@@ -35,32 +34,28 @@ class ProdukController extends Controller
             ? session('pengguna.akses')
             : json_decode(session('pengguna.akses') ?? '[]', true);
 
-        // Debug: cek hak akses
         if (empty($aksesArr)) {
             return response()->json(['message' => 'Hak akses kosong'], 403);
         }
 
         $sort = $request->get('sort', 'nama_produk');
         $order = $request->get('order', 'asc');
-
         $validSorts = ['nama_produk', 'kategori', 'supplier', 'stok', 'satuan', 'harga_beli', 'harga_jual', 'timestamps'];
         $sort = in_array($sort, $validSorts) ? $sort : 'nama_produk';
 
-        $produk = Produk::with('konversiSatuan', 'barcodes')->orderBy($sort, $order)->get();
+        $produk = Produk::with(['konversiSatuan', 'barcodes', 'diskon'])->orderBy($sort, $order)->get();
 
+        // Tambahkan multi_harga dari restok terakhir jika ada
         foreach ($produk as $p) {
-            // Ambil dari detail restok terakhir (atau logika lain sesuai kebutuhan)
             $lastRestok = \App\Models\DetailRestoks::where('produk_id', $p->id)
                 ->orderByDesc('created_at')
                 ->first();
 
-            // Jika ada, gunakan multi_harga dari restok terakhir
             if ($lastRestok && $lastRestok->multi_harga) {
                 $p->multi_harga = is_array($lastRestok->multi_harga)
                     ? $lastRestok->multi_harga
                     : json_decode($lastRestok->multi_harga, true);
             } else {
-                // Fallback: hanya satuan dasar
                 $p->multi_harga = [
                     [
                         'satuan' => $p->satuan,
@@ -74,6 +69,7 @@ class ProdukController extends Controller
         return response()->json($produk);
     }
 
+    // Menyimpan produk baru ke database
     public function store(Request $request){
         $request->validate([
             'nama_produk' => 'required|string|max:100',
@@ -93,6 +89,7 @@ class ProdukController extends Controller
         ]);
     }
 
+    // Mengupdate data produk berdasarkan ID
     public function update(Request $request, $id){
         $validated = $request->validate([
             'nama_produk' => 'sometimes|string|max:100',
@@ -109,9 +106,9 @@ class ProdukController extends Controller
         return response()->json($produk);
     }
 
+    // Menghapus banyak produk sekaligus (multi delete) dengan validasi password user
     public function destroyMultiple(Request $request)
     {
-        // Validasi input termasuk password
         $request->validate([
             'ids' => 'required|array|min:1',
             'ids.*' => 'required|integer|exists:produks,id',
@@ -125,7 +122,6 @@ class ProdukController extends Controller
             ], 400);
         }
 
-        // Validasi password user yang sedang login
         $pengguna = session('pengguna');
         if (!$pengguna) {
             return response()->json([
@@ -134,8 +130,17 @@ class ProdukController extends Controller
             ], 401);
         }
 
-        // Verifikasi password (sesuaikan dengan cara autentikasi Anda)
-        if (!Hash::check($request->password, $pengguna['password'] ?? '')) {
+        // Ambil data pengguna dari database, bukan dari session
+        $penggunaDb = \App\Models\Pengguna::find($pengguna['id'] ?? null);
+        if (!$penggunaDb) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengguna tidak ditemukan'
+            ], 401);
+        }
+
+        // Verifikasi password user dengan hash dari database
+        if (!Hash::check($request->password, $penggunaDb->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Password tidak sesuai'
@@ -147,13 +152,9 @@ class ProdukController extends Controller
 
             $produkIds = $request->ids;
 
-            // Hapus barcodes
+            // Hapus data terkait produk
             Barcode::whereIn('produk_id', $produkIds)->delete();
-
-            // Hapus konversi satuan
             KonversiSatuan::whereIn('produk_id', $produkIds)->delete();
-
-            // Hapus diskon
             Diskon::whereIn('produk_id', $produkIds)->delete();
 
             // Hapus produk
@@ -180,6 +181,7 @@ class ProdukController extends Controller
         }
     }
 
+    // Menyimpan diskon baru untuk produk
     public function storeDiskon(Request $request)
     {
         $request->validate([
@@ -207,6 +209,7 @@ class ProdukController extends Controller
         ]);
     }
 
+    // Mengambil daftar diskon untuk produk tertentu
     public function getDiskon($id){
         $diskon = Diskon::where('produk_id', $id)
             ->orderBy('jumlah_minimum')
@@ -215,6 +218,7 @@ class ProdukController extends Controller
         return response()->json($diskon);
     }
 
+    // Menghapus diskon berdasarkan ID
     public function hapusDiskon($id){
         try {
             $diskon = Diskon::findOrFail($id);
@@ -229,6 +233,7 @@ class ProdukController extends Controller
         }
     }
 
+    // Menyimpan konversi satuan baru untuk produk
     public function storeSatuan(Request $request){
         $validated = $request->validate([
             'produk_id' => 'required|exists:produks,id',
@@ -259,6 +264,7 @@ class ProdukController extends Controller
         ]);
     }
 
+    // Mengambil daftar konversi satuan untuk produk tertentu
     public function getSatuan($produkId){
         $konversi = KonversiSatuan::where('produk_id', $produkId)
                     ->orderBy('created_at', 'desc')
@@ -267,6 +273,7 @@ class ProdukController extends Controller
         return response()->json($konversi);
     }
 
+    // Menghapus konversi satuan berdasarkan ID
     public function destroySatuan($id)
     {
         try {
@@ -282,6 +289,7 @@ class ProdukController extends Controller
         }
     }
 
+    // Mengambil daftar barcode untuk produk tertentu
     public function getBarcode($produkId)
     {
         $produk = Produk::findOrFail($produkId);
@@ -290,6 +298,7 @@ class ProdukController extends Controller
         return response()->json($barcodes);
     }
 
+    // Menyimpan barcode baru untuk produk (hanya satu barcode utama per produk)
     public function storeBarcode(Request $request)
     {
         $validated = $request->validate([
@@ -318,6 +327,7 @@ class ProdukController extends Controller
         return response()->json(['message' => 'Barcode berhasil disimpan'], 201);
     }
 
+    // Menghapus barcode berdasarkan ID, dan jika barcode utama dihapus, set barcode lain sebagai utama
     public function destroyBarcode($barcodeId)
     {
         $barcode = Barcode::findOrFail($barcodeId);
@@ -336,6 +346,7 @@ class ProdukController extends Controller
         return response()->json(['message' => 'Barcode berhasil dihapus']);
     }
 
+    // Mengubah barcode tertentu menjadi barcode utama untuk produk
     public function setAsUtama($barcodeId)
     {
         $barcode = Barcode::findOrFail($barcodeId);
@@ -351,6 +362,7 @@ class ProdukController extends Controller
         return response()->json(['message' => 'Barcode utama berhasil diubah']);
     }
 
+    // Generate barcode unik untuk produk (gunakan helper di model Barcode)
     public function generateBarcode($produkId)
     {
         $produk = Produk::findOrFail($produkId);
@@ -361,12 +373,14 @@ class ProdukController extends Controller
         ]);
     }
 
+    // Menampilkan halaman daftar restok
     public function restokIndex()
     {
         $restoks = Restok::with('detailRestoks')->orderBy('tanggal', 'desc')->paginate(20);
         return view('restok.index', compact('restoks'));
     }
 
+    // Menyimpan data restok baru beserta detail produk yang direstok, update stok produk
     public function restokStore(Request $request)
     {
         $request->validate([
@@ -409,7 +423,7 @@ class ProdukController extends Controller
                     'multi_harga' => isset($item['multi_harga']) ? json_encode($item['multi_harga']) : null,
                 ]);
 
-                // Update stok produk
+                // Update stok produk (konversi jika satuan berbeda)
                 $produk = Produk::find($item['produk_id']);
                 if ($produk) {
                     $jumlahTambah = $item['jumlah'];
@@ -421,7 +435,7 @@ class ProdukController extends Controller
                             $jumlahTambah = $item['jumlah'] * $konversi;
                         }
                     }
-                    $produk->increment('stok', $jumlahTambah); // <-- stok di DB selalu dalam satuan dasar (pcs)
+                    $produk->increment('stok', $jumlahTambah); // stok di DB selalu dalam satuan dasar (pcs)
                 }
             }
 
@@ -433,12 +447,14 @@ class ProdukController extends Controller
         }
     }
 
+    // Mengambil detail restok berdasarkan ID restok
     public function restokShow($id)
     {
         $restok = Restok::with('detailRestoks')->findOrFail($id);
         return response()->json($restok);
     }
 
+    // Menghapus data restok berdasarkan ID
     public function restokDestroy($id)
     {
         $restok = Restok::findOrFail($id);
@@ -446,6 +462,7 @@ class ProdukController extends Controller
         return response()->json(['success' => true, 'message' => 'Restok berhasil dihapus']);
     }
 
+    // Menyimpan data retur produk (pengurangan stok), konversi satuan jika perlu
     public function returStore(Request $request)
     {
         $request->validate([

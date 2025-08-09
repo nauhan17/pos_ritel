@@ -16,10 +16,12 @@
 </head>
 
 <body>
-    <div class="container-content">
+    <div class="container-content d-flex">
         @include('partials.sidebar')
-        <div class="main-content">
-            @yield('content')
+        <div class="main-content flex-grow-1">
+            <div class="container-fluid py-2">
+                @yield('content')
+            </div>
         </div>
     </div>
 
@@ -28,7 +30,6 @@
 
     <!-- Alert Container -->
     <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; width: 300px;"></div>
-
 
     <script>
         window.currentUserName = @json(Auth::user()->nama ?? 'Guest');
@@ -40,15 +41,14 @@
     <script src="{{ asset('js/sb-admin-2.min.js') }}"></script>
 
     <!-- Utility Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="{{ asset('vendor/chart.js/Chart.js') }}"></script>
+    <script src="{{ asset('vendor/libs/sweetalert2.js') }}"></script>
+    <script src="{{ asset('vendor/libs/JsBarcode.all.min.js') }}"></script>
 
     <!-- Export Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="{{ asset('vendor/libs/xlsx.full.min.js') }}"></script>
+    <script src="{{ asset('vendor/libs/jspdf.umd.min.js') }}"></script>
+    <script src="{{ asset('vendor/libs/jspdf.plugin.autotable.min.js') }}"></script>
 
     @stack('scripts')
 </body>

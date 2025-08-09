@@ -3,7 +3,7 @@
 @section('title', 'Kasir')
 
 @section('content')
-    <div class="container py-4">
+    <div class="container-fluid py-4">
         <!-- Row 1: Info Transaksi & Input Produk -->
         <div class="row g-3 align-items-end mb-3">
             <div class="col-md-6">

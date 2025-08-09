@@ -1,4 +1,15 @@
 document.addEventListener('DOMContentLoaded', function () {
+    if (localStorage.getItem('loginSuccess') === '1') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Login berhasil!',
+            showConfirmButton: false,
+            timer: 2000
+        });
+        localStorage.removeItem('loginSuccess');
+    }
 
     function setupEventListeners() {
         const formTambah = document.querySelector('#formTambahPengguna'); // Update ID
@@ -180,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const tbody = document.getElementById('penggunaTableBody');
         tbody.innerHTML = data.map((pengguna, idx) => `
             <tr>
-                <td>${idx + 1}</td>
+                <td class="text-center">${idx + 1}</td>
                 <td>
                     <div class="fw-bold">${pengguna.nama}</div>
                     <div class="text-muted small">${pengguna.email}</div>
@@ -196,11 +207,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         ${pengguna.is_active ? 'Aktif' : 'Nonaktif'}
                     </span>
                 </td>
-                <td>
-                    <button class="btn btn-sm btn-warning btn-edit" data-id="${pengguna.id}">
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning btn-edit me-1" data-id="${pengguna.id}" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger btn-delete" data-id="${pengguna.id}">
+                    <button class="btn btn-sm btn-danger btn-delete" data-id="${pengguna.id}" title="Hapus">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -262,7 +273,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Set status aktif
-        document.getElementById('editIsActive').checked = pengguna.is_active;
+        document.getElementById('editIsActive').checked = pengguna.is_active == 1 || pengguna.is_active === true;
 
         // Reset password field
         const passwordField = document.getElementById('editPassword');

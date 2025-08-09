@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class Diskon extends Model
 {
-    //
+    // Kolom yang boleh diisi secara mass-assignment
     protected $fillable = [
         'produk_id',
         'jumlah_minimum',
@@ -18,10 +18,12 @@ class Diskon extends Model
         'tanggal_berakhir'
     ];
 
+    // Relasi: diskon ini milik satu produk
     public function produk(){
         return $this->belongsTo(Produk::class);
     }
 
+    // Scope: mengambil diskon yang aktif (tanpa waktu atau dalam rentang tanggal berlaku)
     public function scopeAktif(Builder $query){
         return $query->where(function($q){
             $q->where('is_tanpa_waktu', true)
@@ -33,14 +35,17 @@ class Diskon extends Model
         });
     }
 
+    // Scope: filter diskon untuk produk tertentu
     public function scopeUntukProduk(Builder $query, $produkId){
         return $query->where('produk_id', $produkId);
     }
 
+    // Scope: filter diskon berdasarkan jumlah minimum pembelian
     public function scopeUntukJumlah(Builder $query, $jumlah){
         return $query->where('jumlah_minimum', '<=', $jumlah);
     }
 
+    // Mengecek apakah diskon ini sedang aktif (berlaku sekarang)
     public function isAktif(){
         if($this->is_tanpa_waktu){
             return true;
