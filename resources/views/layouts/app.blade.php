@@ -11,6 +11,10 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
+    <link rel="icon" type="image/png" href="{{ asset('img/favicon.png') }}">
+    <link rel="shortcut icon" href="{{ asset('img/favicon.ico') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('img/favicon.png') }}">
+
     <script>try{if(localStorage.getItem('sidebar-mini')==='1'){document.documentElement.classList.add('sidebar-mini');document.addEventListener('DOMContentLoaded',()=>document.body.classList.add('sidebar-mini'))}}catch{};</script>
 </head>
 

@@ -34,7 +34,6 @@ export async function init() {
         searchInput: document.getElementById('searchTrackingInput')
     };
 
-    // State
     const state = {
         allTracking: [],
         viewData: [], // data setelah filter, sebelum paginasi
@@ -260,9 +259,10 @@ export async function init() {
 
     // Load data dari API
     async function loadTrackingData(sortField = 'created_at', sortDirection = 'desc') {
+        let ctrl;
         try {
             if (listReqAbort) { try { listReqAbort.abort(); } catch {} }
-            const ctrl = new AbortController();
+            ctrl = new AbortController();
             listReqAbort = ctrl;
             const res = await fetch(`/api/tracking?sort=${sortField}&order=${sortDirection}&_ts=${Date.now()}`, {
                 credentials: 'same-origin',
@@ -285,7 +285,6 @@ export async function init() {
             trackingPagination.page = 1;
             applyTrackingFilter(false);
         } catch (error) {
-            handleDataLoadError(error);
             if (error?.name !== 'AbortError' && error !== 'aborted') {
                 handleDataLoadError(error);
             }
@@ -515,13 +514,12 @@ export async function init() {
             const b = window.bootstrap || await bootstrapP;
             b?.Modal.getOrCreateInstance(modalEl)?.show();
         } catch (e) {
-            await showAlert('Gagal memuat detail transaksi', 'error', 2000);
             if (e?.name !== 'AbortError' && e !== 'aborted') {
                 await showAlert('Gagal memuat detail transaksi', 'error', 2000);
             }
         } finally {
-            detailReqAbort = null;
-        }
+             detailReqAbort = null;
+         }
     }
 
     function extractError(payload) {

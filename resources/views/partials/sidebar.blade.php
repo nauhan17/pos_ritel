@@ -2,7 +2,7 @@
 <div class="">
     <nav class="sidebar d-flex flex-column flex-shrink-0 position-fixed" id="mainSidebar">
         <div class="p-4 d-flex justify-content-center align-items-center position-relative">
-            <img class="img-logo" src="{{ asset('img/logo.png') }}" alt="">
+            <img class="img-logo" src="{{ asset('img/favicon.png') }}" alt="">
             <button id="sidebarToggle" class="btn btn-sm btn-toggle-collapse position-absolute end-0 top-0 mt-2 me-2"
                 title="Kecilkan Sidebar">
                 <i class="fas fa-angle-double-left"></i>

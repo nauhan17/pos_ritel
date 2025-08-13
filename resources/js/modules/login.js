@@ -1,8 +1,7 @@
 export function init() {
     let pengguna = null;
-
-    // Abort controller untuk membatalkan request login yang sedang berjalan
     let loginReqAbort = null;
+    let isRedirecting = false;
 
     const DOM = {
         meta: {
@@ -30,7 +29,7 @@ export function init() {
     async function fetchJSON(url, options = {}) {
         const ctrl = new AbortController();
         const outerSignal = options.signal;
-        const timeout = options.timeout ?? 1500; // percepat fail
+        const timeout = options.timeout ?? 5000;
         const t = setTimeout(() => ctrl.abort('timeout'), timeout);
         const onAbort = () => { try { ctrl.abort('aborted'); } catch {} };
         if (outerSignal) {
@@ -40,6 +39,8 @@ export function init() {
         try {
             const res = await fetch(url, {
                 ...options,
+                signal: ctrl.signal,
+                credentials: options.credentials ?? 'same-origin',
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
@@ -47,16 +48,25 @@ export function init() {
                     'Pragma': 'no-cache',
                     ...(options.headers || {})
                 },
-                credentials: options.credentials ?? 'same-origin',
-                signal: ctrl.signal,
                 keepalive: options.keepalive ?? false
             });
+            const ct = res.headers.get('content-type') || '';
+            const isJson = ct.includes('application/json');
             const text = await res.text(); // baca sekali
-            let body;
-            try { body = text ? JSON.parse(text) : {}; } catch { body = text; }
+            let body = text;
+            if (isJson) { try { body = text ? JSON.parse(text) : {}; } catch {} }
             if (!res.ok) {
                 const msg = typeof body === 'string' ? body : (body?.message || `HTTP ${res.status}`);
-                throw new Error(msg);
+                const err = new Error(msg);
+                err.status = res.status;
+                err.raw = text;
+                throw err;
+            }
+            if (!isJson) {
+                const err = new Error(`Respon tidak valid dari server (bukan JSON). HTTP ${res.status}`);
+                err.status = res.status;
+                err.raw = text;
+                throw err;
             }
             return body;
         } finally {
@@ -73,43 +83,54 @@ export function init() {
         DOM.error && (DOM.error.textContent = '');
 
         try {
-            // Batalkan request sebelumnya jika ada
+            // Batalkan request sebelumnya agar tidak menumpuk
             if (loginReqAbort) { try { loginReqAbort.abort(); } catch {} }
             loginReqAbort = new AbortController();
-             const data = await fetchJSON('/api/login', {
-                 method: 'POST',
-                 headers: {
-                     'Content-Type': 'application/json',
-                     'X-CSRF-TOKEN': DOM.meta.csrfToken,
-                 },
-                 body: JSON.stringify({ nama, password }),
-                 credentials: 'same-origin',
-                 timeout: 1500,
-                 signal: loginReqAbort.signal
-             });
+            const data = await fetchJSON('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': DOM.meta.csrfToken,
+                    // Accept/X-Requested-With ditambahkan di fetchJSON
+                },
+                body: JSON.stringify({ nama, password }),
+                credentials: 'same-origin',
+                timeout: 5000,
+                signal: loginReqAbort.signal
+            });
 
-             if (data.success && data.pengguna) {
-                 pengguna = data.pengguna;
-                 showAksesPengguna();
-             } else {
-                 showError(data.message || 'Nama atau password salah');
-             }
+            if (data.success && data.pengguna) {
+                pengguna = data.pengguna;
+                // Jika server mengirim next_url gunakan langsung
+                if (typeof data.next_url === 'string' && data.next_url) {
+                    return redirectNow(data.next_url);
+                }
+                return showAksesPengguna();
+            } else {
+                showError(data.message || 'Nama atau password salah');
+            }
         } catch (err) {
+            if (err?.message === 'aborted') return;
+            if (err?.message === 'timeout') return showError('Koneksi lambat, coba lagi.');
+            if (err?.status === 419) return showError('Sesi kedaluwarsa/CSRF tidak valid. Muat ulang halaman.');
+            if (err?.status === 401) return showError('Nama atau password salah.');
+            if (err?.status === 404) return showError('Endpoint /api/login tidak ditemukan.');
+            if (typeof err?.raw === 'string' && err.raw.includes('<html')) {
+                return showError('Server mengirim HTML (kemungkinan redirect). Periksa route /api/login & middleware.');
+            }
             showError(err?.message || 'Terjadi kesalahan server!');
         } finally {
-            // Jika akan redirect, tombol tidak sempat diaktifkan lagi (tidak masalah)
-            toggleLoading(false);
+            // Jangan ubah UI saat sedang redirect agar terasa cepat
+            if (!isRedirecting) toggleLoading(false);
         }
     });
 
-    // Batalkan request saat user menutup/berpindah tab agar tidak menggantung
-    const abortOnLeave = () => { if (loginReqAbort) try { loginReqAbort.abort(); } catch {} };
-    window.addEventListener('beforeunload', abortOnLeave, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') abortOnLeave();
-    });
-    // Optional: bersihkan listener saat SPA teardown (jika ada mekanisme dispose)
-    // window.removeEventListener('beforeunload', abortOnLeave);
+    function redirectNow(url) {
+        try { localStorage.setItem('loginSuccess', '1'); } catch {}
+        isRedirecting = true;
+        document.body.style.pointerEvents = 'none';
+        window.location.replace(url);
+    }
 
     function showAksesPengguna() {
         const aksesRoute = {
@@ -126,10 +147,7 @@ export function init() {
 
         for (const akses of Object.keys(aksesRoute)) {
             if (aksesArr.includes(akses)) {
-                localStorage.setItem('loginSuccess', '1');
-                // replace agar tidak menambah history (sedikit lebih mulus saat back)
-                window.location.replace(aksesRoute[akses]);
-                return;
+                return redirectNow(aksesRoute[akses]);
             }
         }
         showError('Anda tidak memiliki hak akses ke halaman manapun.');
@@ -143,4 +161,11 @@ export function init() {
     function safeParseJSON(s) {
         try { return JSON.parse(s); } catch { return null; }
     }
+
+    // Batalkan request saat user meninggalkan halaman/tab
+    const abortOnLeave = () => { if (loginReqAbort) { try { loginReqAbort.abort(); } catch {} } };
+    window.addEventListener('beforeunload', abortOnLeave, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') abortOnLeave();
+    });
 }
