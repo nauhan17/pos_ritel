@@ -2,8 +2,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaksi;
-use App\Models\DetailTransaksi;
+use App\Models\Produk;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 class TransaksiController extends Controller
@@ -33,11 +34,11 @@ class TransaksiController extends Controller
         ]);
 
         $no_transaksi = self::generateNoTransaksi();
-
         $transaksi = null;
+        $updatedStok = [];
 
         // Simpan transaksi dan detailnya dalam satu transaksi database (atomic)
-        DB::transaction(function () use ($request, $no_transaksi, &$transaksi) {
+        DB::transaction(function () use ($request, $no_transaksi, &$transaksi, &$updatedStok) {
             $transaksi = Transaksi::create([
                 'no_transaksi' => $no_transaksi,
                 'tanggal' => $request->tanggal,
@@ -50,8 +51,39 @@ class TransaksiController extends Controller
                 'no_hp' => $request->no_hp,
                 'jatuh_tempo' => $request->jatuh_tempo,
             ]);
+
             foreach ($request->items as $item) {
                 $transaksi->details()->create($item);
+
+                // Kurangi stok produk secara atomik
+                $produkId = (int)($item['produk_id'] ?? 0);
+                $qty = (int)($item['qty'] ?? 0);
+                $satuan = $item['satuan'] ?? null;
+                if ($produkId > 0 && $qty > 0) {
+                    $produk = Produk::lockForUpdate()->find($produkId);
+                    if ($produk) {
+                        // Hitung qty dalam satuan dasar (pcs)
+                        $qtyPcs = $qty;
+                        if ($satuan && $satuan !== $produk->satuan) {
+                            // Coba cari konversi di tabel konversi_satuans (fallback konversi_satuan)
+                            $konv = DB::table('konversi_satuans')
+                                ->where('produk_id', $produk->id)
+                                ->where('satuan_besar', $satuan)
+                                ->value('konversi');
+                            if ($konv === null) {
+                                $konv = DB::table('konversi_satuan')
+                                    ->where('produk_id', $produk->id)
+                                    ->where('satuan_besar', $satuan)
+                                    ->value('konversi');
+                            }
+                            $k = (int)($konv ?? 0);
+                            $qtyPcs = $k > 0 ? $qty * $k : $qty;
+                        }
+                        $produk->stok = max(0, (int)$produk->stok - (int)$qtyPcs);
+                        $produk->save();
+                        $updatedStok[] = ['produk_id' => $produk->id, 'stok' => (int)$produk->stok];
+                    }
+                }
             }
         });
 
@@ -66,64 +98,48 @@ class TransaksiController extends Controller
             'success' => true,
             'no_transaksi' => $no_transaksi,
             'id' => $transaksi->id,
+            'updated_stok' => $updatedStok,
         ]);
     }
 
-    // Membuat nomor transaksi baru secara otomatis berdasarkan tanggal dan urutan terakhir hari ini.
-    public static function generateNoTransaksi()
+    public function noBaru()
     {
-        $prefix = 'TRX' . date('Ymd');
-        $last = Transaksi::whereDate('tanggal', date('Y-m-d'))
-            ->orderByDesc('no_transaksi')
-            ->first();
-
-        if ($last && preg_match('/\-(\d+)$/', $last->no_transaksi, $m)) {
-            $next = str_pad($m[1] + 1, 3, '0', STR_PAD_LEFT);
-        } else {
-            $next = '001';
-        }
-        return $prefix . '-' . $next;
+        $no = $this->generateNoTransaksi();
+        return response()->json(['no_transaksi' => $no], 200, ['Cache-Control' => 'no-store']);
     }
 
-    // Mengambil nomor transaksi baru (tanpa menyimpan transaksi), biasanya untuk kebutuhan frontend.
-    public function getNoTransaksiBaru()
+    private function generateNoTransaksi(): string
     {
-        $prefix = 'TRX' . date('Ymd');
-        $last = Transaksi::whereDate('tanggal', date('Y-m-d'))
-            ->orderByDesc('no_transaksi')
-            ->first();
+        $prefix = 'TRX' . now()->format('Ymd') . '-';
+        $last = Transaksi::where('no_transaksi', 'like', $prefix . '%')
+            ->orderBy('no_transaksi', 'desc')
+            ->value('no_transaksi');
 
-        if ($last && preg_match('/\-(\d+)$/', $last->no_transaksi, $m)) {
-            $next = str_pad($m[1] + 1, 3, '0', STR_PAD_LEFT);
-        } else {
-            $next = '001';
+        $seq = 0;
+        if ($last && preg_match('/(\d+)$/', $last, $m)) {
+            $seq = (int)$m[1];
         }
-        return response()->json(['no_transaksi' => $prefix . '-' . $next]);
+        return $prefix . str_pad((string)($seq + 1), 4, '0', STR_PAD_LEFT);
     }
 
-    // Mengambil detail transaksi berdasarkan ID, termasuk detail itemnya.
-    // Data dikembalikan dalam bentuk JSON, cocok untuk kebutuhan API/frontend.
     public function show($id)
     {
-        $transaksi = Transaksi::with('details')->findOrFail($id);
+        $trx = \App\Models\Transaksi::findOrFail($id);
+        // Ambil detail tanpa bergantung relasi
+        $details = DB::table('detail_transaksis')
+            ->select('transaksi_id','nama_produk','qty','harga','subtotal')
+            ->where('transaksi_id', $trx->id)->get();
         return response()->json([
-            'id' => $transaksi->id,
-            'no_transaksi' => $transaksi->no_transaksi,
-            'tanggal' => $transaksi->tanggal,
-            'total' => $transaksi->total,
-            'hutang' => $transaksi->hutang,
-            'status' => $transaksi->status,
-            'nama_pembeli' => $transaksi->nama_pembeli,
-            'no_hp' => $transaksi->no_hp,
-            'jatuh_tempo' => $transaksi->jatuh_tempo,
-            'details' => $transaksi->details->map(function($d) {
-                return [
-                    'nama_produk' => $d->nama_produk,
-                    'qty' => $d->qty,
-                    'harga' => $d->harga,
-                    'subtotal' => $d->subtotal,
-                ];
-            })
+            'id' => $trx->id,
+            'no_transaksi' => $trx->no_transaksi,
+            'tanggal' => $trx->tanggal,
+            'status' => $trx->status,
+            'hutang' => $trx->hutang,
+            'total' => $trx->total,
+            'nama_pembeli' => $trx->nama_pembeli,
+            'no_hp' => $trx->no_hp,
+            'jatuh_tempo' => $trx->jatuh_tempo,
+            'details' => $details,
         ]);
     }
 
@@ -140,6 +156,26 @@ class TransaksiController extends Controller
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Gagal melunasi hutang'], 500);
+        }
+    }
+
+    public function markAsLunas($id, Request $request)
+    {
+        try {
+            DB::transaction(function () use ($id) {
+                $trx = Transaksi::lockForUpdate()->findOrFail($id);
+                if ($trx->status !== 'lunas') {
+                    $trx->status = 'lunas';
+                    $trx->hutang = 0;
+                    if (Schema::hasColumn($trx->getTable(), 'tanggal_lunas')) {
+                        $trx->tanggal_lunas = now();
+                    }
+                    $trx->save();
+                }
+            });
+            return response()->json(['success' => true, 'id' => (int)$id, 'status' => 'lunas']);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }

@@ -155,7 +155,3 @@
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script src="{{ asset('js/modules/pengguna.js') }}"></script>
-@endpush

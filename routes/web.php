@@ -87,8 +87,10 @@ Route::get('/api/no-transaksi-baru', [TransaksiController::class, 'getNoTransaks
     ->middleware([CekHakAkses::class . ':kasir', 'auth']);
 Route::get('/api/transaksi/{id}', [TransaksiController::class, 'show'])
     ->middleware([CekHakAkses::class . ':kasir', 'auth']);
-Route::post('/api/transaksi/{id}/lunas', [TransaksiController::class, 'lunas'])
-    ->middleware([CekHakAkses::class . ':kasir', 'auth']);
+Route::post('/api/transaksi/{id}/lunas', [TransaksiController::class, 'markAsLunas']);
+
+Route::get('/transaksi/no-baru', [TransaksiController::class, 'noBaru'])->name('transaksi.no-baru');
+Route::post('/transaksi', [TransaksiController::class, 'store'])->name('transaksi.store'); // jika belum ada
 
 Route::get('/restok', [ProdukController::class, 'restokIndex']);
 Route::post('/restok', [ProdukController::class, 'restokStore']);

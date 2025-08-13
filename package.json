@@ -4,17 +4,31 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "preview": "vite preview",
+        "dev:serve": "concurrently -k -n \"php,vite\" -c \"cyan,green\" \"php artisan serve\" \"vite\""
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
         "axios": "^1.10.0",
         "concurrently": "^9.0.1",
-        "laravel-vite-plugin": "^1.2.0",
+        "laravel-vite-plugin": "^1.3.0",
         "tailwindcss": "^4.0.0",
-        "vite": "^6.2.4"
+        "vite": "^6.3.5"
     },
     "dependencies": {
-        "sweetalert2": "^11.6.13"
+        "@fortawesome/fontawesome-free": "^7.0.0",
+        "bootstrap": "^5.3.7",
+        "chart.js": "^4.5.0",
+        "jquery": "^3.7.1",
+        "jquery.easing": "^1.4.1",
+        "jsbarcode": "^3.12.1",
+        "jspdf": "^3.0.1",
+        "jspdf-autotable": "^5.0.2",
+        "sweetalert2": "^11.22.3",
+        "xlsx": "^0.18.5"
+    },
+    "engines": {
+        "node": ">=18.0.0"
     }
 }

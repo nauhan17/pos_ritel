@@ -83,19 +83,6 @@
                                 </thead>
                                 <tbody>
                                     {{-- Data keranjang diisi JS --}}
-                                    {{-- <tr>
-                                    <td>
-                                        <span class="fw-semibold">Nama Produk</span>
-                                        <div class="small text-muted">1234567890123</div>
-                                    </td>
-                                    <td class="text-end">Rp10.000</td>
-                                    <td class="text-center">2</td>
-                                    <td class="text-center">pcs</td>
-                                    <td class="text-end">Rp20.000</td>
-                                    <td class="text-center">
-                                        <button class="btn btn-sm btn-light text-danger" title="Hapus"><i class="fas fa-trash"></i></button>
-                                    </td>
-                                </tr> --}}
                                 </tbody>
                             </table>
                         </div>
@@ -143,23 +130,7 @@
             </div>
         </div>
 
-        <!-- Shortcut Info -->
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card shadow-sm rounded-4">
-                    <div class="card-body">
-                        <h6 class="mb-2">Shortcut:</h6>
-                        <div class="d-flex flex-wrap gap-2">
-                            <span class="badge bg-primary">F1: Fokus Barcode</span>
-                            <span class="badge bg-success">F2: Proses Bayar</span>
-                            <span class="badge bg-danger">F3: Batalkan</span>
-                            <span class="badge bg-info">Enter: Tambah ke Keranjang</span>
-                            <span class="badge bg-secondary">Del: Hapus Produk</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
     </div>
     <!-- Modal Data Pembeli Hutang -->
     <div class="modal fade" id="modalHutang" tabindex="-1" aria-labelledby="modalHutangLabel" aria-hidden="true">
